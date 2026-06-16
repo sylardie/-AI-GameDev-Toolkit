@@ -318,6 +318,14 @@
     border-bottom: 1px solid #1e293b;
     padding-bottom: 12px;
   }
+
+  .table-wrap table {
+    min-width: 920px;
+  }
+  
+  td {
+    max-width: 360px;
+  }
   
   .tab-button {
     background: #1e293b;
@@ -335,6 +343,7 @@
     border: 1px solid #1e293b;
     border-radius: 16px;
     padding: 18px;
+    overflow-x: auto;
   }
   
   .loop-list {
@@ -403,4 +412,58 @@
     border-radius: 14px;
     padding: 14px;
     color: #cbd5e1;
+  }
+
+  .output-meta {
+    display: grid;
+    gap: 8px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 20px;
+    color: #cbd5e1;
+    font-size: 14px;
+  }
+  
+  .output-meta span {
+    color: #93c5fd;
+    word-break: break-all;
+  }
+  
+  .action-row.compact {
+    margin-top: 0;
+    margin-bottom: 18px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .form-field {
+    display: grid;
+    gap: 8px;
+  }
+  
+  .form-field span {
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  
+  select {
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    background: #020617;
+    color: #e5e7eb;
+    padding: 0 12px;
+    outline: none;
+  }
+  
+  select:focus {
+    border-color: #38bdf8;
   }

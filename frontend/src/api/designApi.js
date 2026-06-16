@@ -1,10 +1,6 @@
-// 前端不直接到处写 fetch
-// 统一通过 designApi.js 调后端
-// 以后换接口地址也好改
-
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-export async function generateDesign(idea) {
+export async function generateDesign(idea, template = "general") {
   const response = await fetch(`${API_BASE_URL}/api/design/generate`, {
     method: "POST",
     headers: {
@@ -12,6 +8,7 @@ export async function generateDesign(idea) {
     },
     body: JSON.stringify({
       idea,
+      template,
     }),
   });
 
