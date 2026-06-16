@@ -1,0 +1,3 @@
+fastapi[standard]
+python-dotenv
+pydantic
