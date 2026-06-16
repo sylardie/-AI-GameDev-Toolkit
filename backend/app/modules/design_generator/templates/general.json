@@ -1,0 +1,17 @@
+{
+    "id": "general",
+    "name": "通用游戏",
+    "description": "适合尚未确定具体类型的游戏想法，用于生成通用游戏设计结构。",
+    "focus": ["核心循环", "系统拆解", "资源", "道具", "实体", "成长", "任务", "关卡"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "保持通用性，不要过度绑定某一游戏类型。重点生成清晰的核心循环、系统结构、资源流动、任务目标和成长路径。"
+  }

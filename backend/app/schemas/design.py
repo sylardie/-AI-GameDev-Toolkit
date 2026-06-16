@@ -6,6 +6,14 @@ class DesignGenerateRequest(BaseModel):
     idea: str = Field(..., min_length=2, description="用户输入的游戏想法")
     template: str = Field(default="general", description="游戏类型模板")
 
+class DesignTemplateInfo(BaseModel):
+    id: str
+    name: str
+    description: str
+    focus: List[str]
+    recommended_tables: List[str]
+    prompt_guidance: str
+
 class SystemItem(BaseModel):
     id: str
     name: str
@@ -94,4 +102,5 @@ class DesignGenerateResponse(BaseModel):
     output_id: str
     json_path: str
     markdown_path: str
+    excel_path: str
     data: DesignData

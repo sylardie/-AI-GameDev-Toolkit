@@ -1,28 +1,33 @@
-import { useState } from "react";
-import { generateDesign } from "../api/designApi";
+import { useEffect, useState } from "react";
+import { generateDesign, getDesignTemplates } from "../api/designApi";
+import { downloadFile } from "../api/fileApi";
 
 const exampleIdea = "海边灯塔少女孵化星球的治愈放置游戏";
-
-const templateOptions = [
-    { value: "general", label: "通用游戏" },
-    { value: "idle", label: "放置游戏" },
-    { value: "rpg", label: "RPG" },
-    { value: "card", label: "卡牌游戏" },
-    { value: "roguelike", label: "Roguelike" },
-    { value: "simulation", label: "经营模拟" },
-    { value: "tower_defense", label: "塔防" },
-    { value: "action_2d", label: "2D 动作" },
-  ];
 
 function DesignGeneratorPage() {
   const [idea, setIdea] = useState(exampleIdea);
   const [template, setTemplate] = useState("idle");
+  const [templates, setTemplates] = useState([]);
+  const [templateError, setTemplateError] = useState("");
   const [result, setResult] = useState(null);
   const [activeTab, setActiveTab] = useState("gdd");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const design = result?.data;
+
+  useEffect(() => {
+    async function loadTemplates() {
+      try {
+        const data = await getDesignTemplates();
+        setTemplates(data);
+      } catch (err) {
+        setTemplateError(err.message || "模板列表加载失败。");
+      }
+    }
+  
+    loadTemplates();
+  }, []);
 
   async function handleGenerate() {
     if (!idea.trim()) {
@@ -71,13 +76,15 @@ function DesignGeneratorPage() {
             <select
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
-            >
-                {templateOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                    {option.label}
-                </option>
+                >
+                {templates.map((option) => (
+                    <option key={option.id} value={option.id}>
+                    {option.name}
+                    </option>
                 ))}
             </select>
+            {templateError && <div className="small-error">{templateError}</div>}
+            <TemplateHint templates={templates} template={template} />
             </label>
         </div>
 
@@ -126,6 +133,33 @@ function DesignGeneratorPage() {
               <strong>Markdown：</strong>
               <span>{result.markdown_path}</span>
             </div>
+            <div>
+              <strong>Excel：</strong>
+              <span>{result.excel_path}</span>
+            </div>
+          </div>
+
+          <div className="download-row">
+            <button
+              className="secondary-button"
+              onClick={() => downloadFile(result.json_path)}
+            >
+              下载 JSON
+            </button>
+
+            <button
+              className="secondary-button"
+              onClick={() => downloadFile(result.markdown_path)}
+            >
+              下载 Markdown
+            </button>
+
+            <button
+              className="secondary-button"
+              onClick={() => downloadFile(result.excel_path)}
+            >
+              下载 Excel
+            </button>
           </div>
 
           <div className="result-header">
@@ -182,6 +216,25 @@ function DesignGeneratorPage() {
     </div>
   );
 }
+
+function TemplateHint({ templates, template }) {
+    const current = templates.find((item) => item.id === template);
+  
+    if (!current) {
+      return null;
+    }
+  
+    return (
+      <div className="template-hint">
+        <div>{current.description}</div>
+        <div className="template-focus">
+          {current.focus.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
 function TabButton({ active, onClick, children }) {
   return (

@@ -1,0 +1,17 @@
+{
+    "id": "action_2d",
+    "name": "2D 动作",
+    "description": "适合横版动作、平台跳跃、即时战斗、关卡推进类游戏。",
+    "focus": ["玩家角色", "敌人", "动作", "技能", "关卡", "Boss", "手感"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成玩家动作、敌人行为、技能解锁、关卡机制、Boss 设计和战斗手感。注意前期敌人攻击前摇和操作教学。"
+  }

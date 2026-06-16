@@ -1,0 +1,17 @@
+{
+    "id": "rpg",
+    "name": "RPG",
+    "description": "适合角色成长、装备收集、技能解锁、剧情推进和关卡挑战类游戏。",
+    "focus": ["角色", "怪物", "装备", "技能", "关卡", "任务", "成长"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成玩家角色、敌人、Boss、装备、技能、经验成长、区域关卡、主线任务和掉落奖励。注意早期战斗节奏和成长反馈。"
+  }

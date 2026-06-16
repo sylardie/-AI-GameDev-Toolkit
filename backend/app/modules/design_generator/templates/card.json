@@ -1,0 +1,17 @@
+{
+    "id": "card",
+    "name": "卡牌游戏",
+    "description": "适合卡组构筑、费用管理、策略对局、卡池收集类游戏。",
+    "focus": ["卡牌", "费用", "卡组", "效果", "敌人", "构筑", "稀有度"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成卡牌、费用、效果、卡组规则、卡牌稀有度、敌人意图、遗物或被动效果。注意初始卡组规模和费用曲线。"
+  }

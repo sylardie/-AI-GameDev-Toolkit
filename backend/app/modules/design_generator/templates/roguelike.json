@@ -1,0 +1,17 @@
+{
+    "id": "roguelike",
+    "name": "Roguelike",
+    "description": "适合随机路线、局内构筑、遗物事件、短局体验和失败重开类游戏。",
+    "focus": ["随机事件", "局内构筑", "遗物", "敌人池", "奖励选择", "路线节点"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成随机节点、事件、遗物、敌人池、奖励池、构筑方向和单局成长。MVP 单局时长建议控制在较短范围。"
+  }

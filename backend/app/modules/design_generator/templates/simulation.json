@@ -1,0 +1,17 @@
+{
+    "id": "simulation",
+    "name": "经营模拟",
+    "description": "适合店铺经营、订单处理、员工管理、设施建设和效率优化类游戏。",
+    "focus": ["顾客", "订单", "员工", "设施", "商品", "收益", "扩张"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成顾客类型、订单需求、员工属性、设施升级、商品配方、经营阶段和收益循环。注意早期订单节奏和等待压力。"
+  }

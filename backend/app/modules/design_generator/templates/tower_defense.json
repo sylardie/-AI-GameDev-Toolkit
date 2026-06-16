@@ -1,0 +1,17 @@
+{
+    "id": "tower_defense",
+    "name": "塔防",
+    "description": "适合路线防守、防御塔搭配、敌人波次、局内升级类游戏。",
+    "focus": ["防御塔", "敌人", "路线", "波次", "建造资源", "关卡"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成防御塔、敌人、波次曲线、建造资源、关卡路线和塔升级。注意新手关卡不要同时引入过多敌人类型。"
+  }

@@ -467,3 +467,48 @@
   select:focus {
     border-color: #38bdf8;
   }
+
+  .template-hint {
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1.6;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 10px;
+  }
+  
+  .template-focus {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  
+  .template-focus span {
+    color: #bae6fd;
+    background: rgba(14, 165, 233, 0.12);
+    border: 1px solid rgba(14, 165, 233, 0.26);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  
+  .small-error {
+    color: #fecaca;
+    font-size: 13px;
+  }
+
+  .download-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 18px;
+  }
+  
+  .download-row button {
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+  }

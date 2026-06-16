@@ -1,0 +1,17 @@
+{
+    "id": "idle",
+    "name": "放置游戏",
+    "description": "适合挂机、离线收益、收集养成、设施升级、轻负担成长类游戏。",
+    "focus": ["离线收益", "生产对象", "设施升级", "收集养成", "资源循环", "自动化"],
+    "recommended_tables": [
+      "systems",
+      "resources",
+      "items",
+      "entities",
+      "progression",
+      "tasks",
+      "levels",
+      "balance_notes"
+    ],
+    "prompt_guidance": "重点生成生产对象、资源产出、升级消耗、离线收益、槽位解锁、自动化能力和长期成长目标。早期反馈要快，长期成长要稳定。"
+  }
