@@ -23,6 +23,7 @@ Thumbs.db
 # App data
 backend/app/data/outputs/
 backend/app/data/traces/
+backend/app/data/config/local_settings.json
 
 # Logs
 *.log

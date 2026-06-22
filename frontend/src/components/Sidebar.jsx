@@ -1,63 +1,52 @@
 import { NavLink } from "react-router-dom";
 
-const navItems = [
-  {
-    path: "/",
-    label: "Dashboard",
-    desc: "项目总览",
-  },
-  {
-    path: "/design",
-    label: "Design Generator",
-    desc: "策划与配置生成",
-  },
-  {
-    path: "/code",
-    label: "Code Agent",
-    desc: "Godot / Unity 助手",
-  },
-  {
-    path: "/art",
-    label: "Art Pipeline",
-    desc: "美术生产管线",
-  },
-  {
-    path: "/settings",
-    label: "Settings",
-    desc: "模型与工具配置",
-  },
+import { useI18n } from "../i18n/I18nContext";
+
+const navKeys = [
+  ["/", "dashboard"],
+  ["/design", "design"],
+  ["/code", "code"],
+  ["/art", "art"],
+  ["/assets", "assets"],
+  ["/settings", "settings"],
 ];
 
 function Sidebar() {
+  const { texts } = useI18n();
+
   return (
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-icon">AI</div>
         <div>
-          <div className="brand-title">GameDev Toolkit</div>
-          <div className="brand-subtitle">AI Workflow Platform</div>
+          <div className="brand-title">{texts.sidebar.brandTitle}</div>
+          <div className="brand-subtitle">{texts.sidebar.brandSubtitle}</div>
         </div>
       </div>
 
       <nav className="nav-list">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === "/"}
-            className={({ isActive }) =>
-              isActive ? "nav-item active" : "nav-item"
-            }
-          >
-            <div className="nav-label">{item.label}</div>
-            <div className="nav-desc">{item.desc}</div>
-          </NavLink>
-        ))}
+        {navKeys.map(([path, key]) => {
+          const [label, desc] = texts.sidebar.nav[key];
+
+          return (
+            <NavLink
+              key={path}
+              to={path}
+              end={path === "/"}
+              className={({ isActive }) =>
+                isActive ? "nav-item active" : "nav-item"
+              }
+            >
+              <div className="nav-label">{label}</div>
+              <div className="nav-desc">{desc}</div>
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="sidebar-footer">
         <div className="status-dot"></div>
-        <span>Local Web Tool</span>
+        <span>{texts.sidebar.localTool}</span>
       </div>
     </aside>
   );

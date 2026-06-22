@@ -6,28 +6,38 @@ from app.core.config import (
     LLM_MODEL,
     LLM_TIMEOUT,
 )
+from app.schemas.settings import LLMSettings
 
 
 class LLMError(Exception):
     pass
 
 
-def chat_completion_json(system_prompt: str, user_prompt: str) -> str:
+def chat_completion_json(
+    system_prompt: str,
+    user_prompt: str,
+    settings: LLMSettings | None = None,
+) -> str:
     """
     Call an OpenAI-compatible chat completions API and return raw text content.
 
     The model is instructed to return JSON, but JSON parsing is handled outside.
     """
-    if not LLM_API_BASE_URL:
+    api_base_url = (settings.api_base_url if settings else LLM_API_BASE_URL).rstrip("/")
+    api_key = settings.api_key if settings else LLM_API_KEY
+    model = settings.model if settings else LLM_MODEL
+    timeout = settings.timeout if settings else LLM_TIMEOUT
+
+    if not api_base_url:
         raise LLMError("LLM_API_BASE_URL is not configured.")
 
-    if not LLM_API_KEY:
+    if not api_key:
         raise LLMError("LLM_API_KEY is not configured.")
 
-    url = f"{LLM_API_BASE_URL}/v1/chat/completions"
+    url = f"{api_base_url}/v1/chat/completions"
 
     payload = {
-        "model": LLM_MODEL,
+        "model": model,
         "messages": [
             {
                 "role": "system",
@@ -45,7 +55,7 @@ def chat_completion_json(system_prompt: str, user_prompt: str) -> str:
     }
 
     headers = {
-        "Authorization": f"Bearer {LLM_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
@@ -54,7 +64,7 @@ def chat_completion_json(system_prompt: str, user_prompt: str) -> str:
             url,
             json=payload,
             headers=headers,
-            timeout=LLM_TIMEOUT,
+            timeout=timeout,
         )
     except requests.RequestException as exc:
         raise LLMError(f"LLM request failed: {exc}") from exc

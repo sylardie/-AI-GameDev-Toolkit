@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+
 import { generateDesign, getDesignTemplates } from "../api/designApi";
 import { downloadFile } from "../api/fileApi";
-
-const exampleIdea = "海边灯塔少女孵化星球的治愈放置游戏";
+import { useI18n } from "../i18n/I18nContext";
 
 function DesignGeneratorPage() {
-  const [idea, setIdea] = useState(exampleIdea);
+  const { texts } = useI18n();
+  const designText = texts.design;
+  const [idea, setIdea] = useState(designText.exampleIdea);
   const [template, setTemplate] = useState("idle");
   const [templates, setTemplates] = useState([]);
   const [templateError, setTemplateError] = useState("");
@@ -22,16 +24,16 @@ function DesignGeneratorPage() {
         const data = await getDesignTemplates();
         setTemplates(data);
       } catch (err) {
-        setTemplateError(err.message || "模板列表加载失败。");
+        setTemplateError(err.message || designText.errors.templateLoad);
       }
     }
-  
+
     loadTemplates();
   }, []);
 
   async function handleGenerate() {
     if (!idea.trim()) {
-      setError("请先输入游戏想法。");
+      setError(designText.errors.emptyIdea);
       return;
     }
 
@@ -44,7 +46,7 @@ function DesignGeneratorPage() {
       setResult(data);
       setActiveTab("gdd");
     } catch (err) {
-      setError(err.message || "生成失败。");
+      setError(err.message || designText.errors.generate);
     } finally {
       setLoading(false);
     }
@@ -54,60 +56,56 @@ function DesignGeneratorPage() {
     if (!result) return;
 
     await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-    alert("JSON 已复制到剪贴板。");
   }
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <div className="eyebrow">Phase 1</div>
-          <h1>Design Generator</h1>
-          <p>输入一句玩法想法，生成结构化 GDD、系统拆解和配置表预览。</p>
+          <div className="eyebrow">{texts.common.phase1}</div>
+          <h1>{designText.title}</h1>
+          <p>{designText.intro}</p>
         </div>
       </div>
 
       <section className="panel">
-        <h2>游戏想法</h2>
+        <h2>{designText.ideaTitle}</h2>
 
         <div className="form-grid">
-            <label className="form-field">
-            <span>游戏类型模板</span>
-            <select
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-                >
-                {templates.map((option) => (
-                    <option key={option.id} value={option.id}>
-                    {option.name}
-                    </option>
-                ))}
+          <label className="form-field">
+            <span>{designText.templateLabel}</span>
+            <select value={template} onChange={(event) => setTemplate(event.target.value)}>
+              {templates.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
             </select>
             {templateError && <div className="small-error">{templateError}</div>}
             <TemplateHint templates={templates} template={template} />
-            </label>
+          </label>
         </div>
 
         <textarea
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            placeholder="例如：我想做一个海边灯塔少女孵化星球的治愈放置游戏"
-            rows={5}
+          value={idea}
+          onChange={(event) => setIdea(event.target.value)}
+          placeholder={designText.placeholder}
+          rows={5}
         />
 
         <div className="action-row">
           <button onClick={handleGenerate} disabled={loading}>
-            {loading ? "生成中..." : "生成设计方案"}
+            {loading ? texts.common.generating : designText.generate}
           </button>
           <button
             className="secondary-button"
             onClick={() => {
-                setIdea(exampleIdea);
-                setTemplate("idle");
-              }}
+              setIdea(designText.exampleIdea);
+              setTemplate("idle");
+            }}
             disabled={loading}
           >
-            填入示例
+            {texts.common.fillExample}
           </button>
         </div>
 
@@ -118,23 +116,23 @@ function DesignGeneratorPage() {
         <section className="panel">
           <div className="output-meta">
             <div>
-                <strong>Template：</strong>
-                <span>{design.template}</span>
+              <strong>{designText.meta.template} </strong>
+              <span>{design.template}</span>
             </div>
             <div>
-              <strong>Output ID：</strong>
+              <strong>{designText.meta.outputId} </strong>
               <span>{result.output_id}</span>
             </div>
             <div>
-              <strong>JSON：</strong>
+              <strong>JSON: </strong>
               <span>{result.json_path}</span>
             </div>
             <div>
-              <strong>Markdown：</strong>
+              <strong>Markdown: </strong>
               <span>{result.markdown_path}</span>
             </div>
             <div>
-              <strong>Excel：</strong>
+              <strong>Excel: </strong>
               <span>{result.excel_path}</span>
             </div>
           </div>
@@ -144,21 +142,21 @@ function DesignGeneratorPage() {
               className="secondary-button"
               onClick={() => downloadFile(result.json_path)}
             >
-              下载 JSON
+              {designText.downloads.json}
             </button>
 
             <button
               className="secondary-button"
               onClick={() => downloadFile(result.markdown_path)}
             >
-              下载 Markdown
+              {designText.downloads.markdown}
             </button>
 
             <button
               className="secondary-button"
               onClick={() => downloadFile(result.excel_path)}
             >
-              下载 Excel
+              {designText.downloads.excel}
             </button>
           </div>
 
@@ -175,41 +173,35 @@ function DesignGeneratorPage() {
           </div>
 
           <div className="tabs">
-            <TabButton
-              active={activeTab === "gdd"}
-              onClick={() => setActiveTab("gdd")}
-            >
-              GDD 概览
+            <TabButton active={activeTab === "gdd"} onClick={() => setActiveTab("gdd")}>
+              {designText.tabs.gdd}
             </TabButton>
             <TabButton
               active={activeTab === "systems"}
               onClick={() => setActiveTab("systems")}
             >
-              系统拆解
+              {designText.tabs.systems}
             </TabButton>
             <TabButton
               active={activeTab === "tables"}
               onClick={() => setActiveTab("tables")}
             >
-              配置表预览
+              {designText.tabs.tables}
             </TabButton>
-            <TabButton
-              active={activeTab === "json"}
-              onClick={() => setActiveTab("json")}
-            >
+            <TabButton active={activeTab === "json"} onClick={() => setActiveTab("json")}>
               JSON
             </TabButton>
           </div>
 
           <div className="action-row compact">
             <button className="secondary-button" onClick={handleCopyJson}>
-              复制完整 JSON
+              {designText.copyJson}
             </button>
           </div>
 
-          {activeTab === "gdd" && <GddView result={design} />}
+          {activeTab === "gdd" && <GddView result={design} texts={designText} />}
           {activeTab === "systems" && <SystemsView systems={design.systems} />}
-          {activeTab === "tables" && <TablesView result={design} />}
+          {activeTab === "tables" && <TablesView result={design} texts={designText} />}
           {activeTab === "json" && <JsonView result={result} />}
         </section>
       )}
@@ -218,23 +210,23 @@ function DesignGeneratorPage() {
 }
 
 function TemplateHint({ templates, template }) {
-    const current = templates.find((item) => item.id === template);
-  
-    if (!current) {
-      return null;
-    }
-  
-    return (
-      <div className="template-hint">
-        <div>{current.description}</div>
-        <div className="template-focus">
-          {current.focus.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
-        </div>
-      </div>
-    );
+  const current = templates.find((item) => item.id === template);
+
+  if (!current) {
+    return null;
   }
+
+  return (
+    <div className="template-hint">
+      <div>{current.description}</div>
+      <div className="template-focus">
+        {current.focus.map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function TabButton({ active, onClick, children }) {
   return (
@@ -244,21 +236,21 @@ function TabButton({ active, onClick, children }) {
   );
 }
 
-function GddView({ result }) {
-    return (
-      <div className="result-block">
-        <h3>目标用户</h3>
-        <p>{result.target_audience}</p>
-  
-        <h3>核心循环</h3>
-        <ol className="loop-list">
-          {result.core_loop.map((step, index) => (
-            <li key={index}>{step}</li>
-          ))}
-        </ol>
-      </div>
-    );
-  }
+function GddView({ result, texts }) {
+  return (
+    <div className="result-block">
+      <h3>{texts.targetAudience}</h3>
+      <p>{result.target_audience}</p>
+
+      <h3>{texts.coreLoop}</h3>
+      <ol className="loop-list">
+        {result.core_loop.map((step, index) => (
+          <li key={index}>{step}</li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 function SystemsView({ systems }) {
   return (
@@ -273,106 +265,104 @@ function SystemsView({ systems }) {
   );
 }
 
-function TablesView({ result }) {
-    return (
-      <div className="tables-view">
-        <DataTable
-          title="Systems"
-          columns={["id", "name", "category", "description"]}
-          rows={result.systems}
-        />
-  
-        <DataTable
-          title="Resources"
-          columns={["id", "name", "resource_type", "description"]}
-          rows={result.resources}
-        />
-  
-        <DataTable
-          title="Items"
-          columns={["id", "name", "item_type", "category", "effect", "properties"]}
-          rows={result.items}
-        />
-  
-        <DataTable
-          title="Entities"
-          columns={["id", "name", "entity_type", "category", "rarity", "description", "properties"]}
-          rows={result.entities}
-        />
-  
-        <DataTable
-          title="Progression"
-          columns={["id", "name", "progression_type", "order", "requirement", "unlocks", "description"]}
-          rows={result.progression}
-        />
-  
-        <DataTable
-          title="Tasks"
-          columns={["id", "name", "task_type", "objective", "reward", "unlock_condition"]}
-          rows={result.tasks}
-        />
-  
-        <DataTable
-          title="Levels"
-          columns={["id", "name", "level_type", "order", "goal", "unlock_condition", "description"]}
-          rows={result.levels}
-        />
-  
-        <DataTable
-          title="Balance Notes"
-          columns={["target", "note"]}
-          rows={result.balance_notes}
-        />
-      </div>
-    );
-  }
+function TablesView({ result, texts }) {
+  return (
+    <div className="tables-view">
+      <DataTable
+        title={texts.tableTitles.systems}
+        columns={["id", "name", "category", "description"]}
+        rows={result.systems}
+      />
 
-  function DataTable({ title, columns, rows }) {
-    return (
-      <div className="table-wrap">
-        <h3>{title}</h3>
-        <table>
-          <thead>
-            <tr>
+      <DataTable
+        title={texts.tableTitles.resources}
+        columns={["id", "name", "resource_type", "description"]}
+        rows={result.resources}
+      />
+
+      <DataTable
+        title={texts.tableTitles.items}
+        columns={["id", "name", "item_type", "category", "effect", "properties"]}
+        rows={result.items}
+      />
+
+      <DataTable
+        title={texts.tableTitles.entities}
+        columns={["id", "name", "entity_type", "category", "rarity", "description", "properties"]}
+        rows={result.entities}
+      />
+
+      <DataTable
+        title={texts.tableTitles.progression}
+        columns={["id", "name", "progression_type", "order", "requirement", "unlocks", "description"]}
+        rows={result.progression}
+      />
+
+      <DataTable
+        title={texts.tableTitles.tasks}
+        columns={["id", "name", "task_type", "objective", "reward", "unlock_condition"]}
+        rows={result.tasks}
+      />
+
+      <DataTable
+        title={texts.tableTitles.levels}
+        columns={["id", "name", "level_type", "order", "goal", "unlock_condition", "description"]}
+        rows={result.levels}
+      />
+
+      <DataTable
+        title={texts.tableTitles.balanceNotes}
+        columns={["target", "note"]}
+        rows={result.balance_notes}
+      />
+    </div>
+  );
+}
+
+function DataTable({ title, columns, rows }) {
+  return (
+    <div className="table-wrap">
+      <h3>{title}</h3>
+      <table>
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th key={column}>{column}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={`${title}-${index}`}>
               {columns.map((column) => (
-                <th key={column}>{column}</th>
+                <td key={column}>{formatCellValue(row[column])}</td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr key={`${title}-${index}`}>
-                {columns.map((column) => (
-                  <td key={column}>{formatCellValue(row[column])}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatCellValue(value) {
+  if (value === null || value === undefined) {
+    return "";
   }
 
-  function formatCellValue(value) {
-    if (value === null || value === undefined) {
-      return "";
-    }
-  
-    if (Array.isArray(value)) {
-      return value.join(", ");
-    }
-  
-    if (typeof value === "object") {
-      return JSON.stringify(value);
-    }
-  
-    return String(value);
+  if (Array.isArray(value)) {
+    return value.join(", ");
   }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
 
 function JsonView({ result }) {
-  return (
-    <pre className="json-view">{JSON.stringify(result, null, 2)}</pre>
-  );
+  return <pre className="json-view">{JSON.stringify(result, null, 2)}</pre>;
 }
 
 export default DesignGeneratorPage;

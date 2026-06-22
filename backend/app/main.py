@@ -5,7 +5,9 @@ from app.core.config import ensure_app_dirs
 from app.api.design import router as design_router
 from app.api.code import router as code_router
 from app.api.art import router as art_router
+from app.api.assets import router as assets_router
 from app.api.files import router as files_router
+from app.api.settings import router as settings_router
 
 
 ensure_app_dirs()
@@ -40,4 +42,6 @@ def health_check():
 app.include_router(design_router)
 app.include_router(code_router)
 app.include_router(art_router)
+app.include_router(assets_router)
 app.include_router(files_router)
+app.include_router(settings_router)

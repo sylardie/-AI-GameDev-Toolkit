@@ -5,15 +5,20 @@ from pydantic import ValidationError
 from app.modules.design_generator.template_loader import load_template
 from app.modules.shared.llm_client import chat_completion_json
 from app.schemas.design import DesignData
+from app.schemas.settings import LLMSettings
 
 
-def generate_design_with_llm(idea: str, template_id: str) -> DesignData:
+def generate_design_with_llm(
+    idea: str,
+    template_id: str,
+    settings: LLMSettings | None = None,
+) -> DesignData:
     template = load_template(template_id)
 
     system_prompt = build_system_prompt()
     user_prompt = build_user_prompt(idea, template)
 
-    raw_content = chat_completion_json(system_prompt, user_prompt)
+    raw_content = chat_completion_json(system_prompt, user_prompt, settings=settings)
 
     try:
         data = json.loads(raw_content)

@@ -1,26 +1,591 @@
+import { useState } from "react";
+
+import {
+  analyzeErrorLog,
+  analyzeProjectFile,
+  readProjectFile,
+  scanProject,
+  searchProject,
+} from "../api/codeApi";
+import { useI18n } from "../i18n/I18nContext";
+
 function CodeAgentPage() {
-    return (
-      <div className="page">
-        <div className="page-header">
-          <div>
-            <div className="eyebrow">Phase 2</div>
-            <h1>Code Agent</h1>
-            <p>Godot / Unity 项目代码助手。下一阶段将支持项目扫描、代码搜索、报错分析。</p>
-          </div>
+  const { texts } = useI18n();
+  const codeText = texts.code;
+  const [projectPath, setProjectPath] = useState("");
+  const [scanResult, setScanResult] = useState(null);
+  const [activeGroup, setActiveGroup] = useState("scripts");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [fileStructure, setFileStructure] = useState(null);
+  const [structureLoading, setStructureLoading] = useState(false);
+  const [structureError, setStructureError] = useState("");
+  const [selectedLine, setSelectedLine] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [errorLog, setErrorLog] = useState("");
+  const [errorAnalysis, setErrorAnalysis] = useState(null);
+  const [errorAnalysisLoading, setErrorAnalysisLoading] = useState(false);
+  const [errorAnalysisError, setErrorAnalysisError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleScan() {
+    if (!projectPath.trim()) {
+      setError(codeText.errors.emptyPath);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setScanResult(null);
+    setSelectedFile(null);
+    setFilePreview(null);
+    setPreviewError("");
+    setFileStructure(null);
+    setStructureError("");
+    setSelectedLine(null);
+    setSearchResult(null);
+    setSearchError("");
+    setErrorAnalysis(null);
+    setErrorAnalysisError("");
+
+    try {
+      const data = await scanProject(projectPath.trim());
+      setScanResult(data);
+      setActiveGroup("scripts");
+    } catch (err) {
+      setError(err.message || codeText.errors.scan);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSelectFile(file, lineNumber = null) {
+    if (!scanResult) return;
+
+    setSelectedFile(file);
+    setSelectedLine(lineNumber);
+    setPreviewLoading(true);
+    setStructureLoading(true);
+    setPreviewError("");
+    setStructureError("");
+    setFilePreview(null);
+    setFileStructure(null);
+
+    try {
+      const data = await readProjectFile(scanResult.project_path, file.relative_path);
+      setFilePreview(data);
+    } catch (err) {
+      setPreviewError(err.message || codeText.errors.preview);
+    } finally {
+      setPreviewLoading(false);
+    }
+
+    try {
+      const data = await analyzeProjectFile(scanResult.project_path, file.relative_path);
+      setFileStructure(data);
+    } catch (err) {
+      setStructureError(err.message || codeText.errors.structure);
+    } finally {
+      setStructureLoading(false);
+    }
+  }
+
+  async function handleSearch() {
+    if (!scanResult) return;
+
+    if (searchQuery.trim().length < 2) {
+      setSearchError(codeText.errors.searchQuery);
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError("");
+    setSearchResult(null);
+
+    try {
+      const data = await searchProject(scanResult.project_path, searchQuery.trim());
+      setSearchResult(data);
+    } catch (err) {
+      setSearchError(err.message || codeText.errors.search);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function handleSearchKeyDown(event) {
+    if (event.key === "Enter") {
+      handleSearch();
+    }
+  }
+
+  async function handleAnalyzeErrorLog() {
+    if (!scanResult) return;
+
+    if (errorLog.trim().length < 5) {
+      setErrorAnalysisError(codeText.errors.logShort);
+      return;
+    }
+
+    setErrorAnalysisLoading(true);
+    setErrorAnalysisError("");
+    setErrorAnalysis(null);
+
+    try {
+      const data = await analyzeErrorLog(scanResult.project_path, errorLog.trim());
+      setErrorAnalysis(data);
+    } catch (err) {
+      setErrorAnalysisError(err.message || codeText.errors.logAnalyze);
+    } finally {
+      setErrorAnalysisLoading(false);
+    }
+  }
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <div className="eyebrow">{texts.common.phase2}</div>
+          <h1>{codeText.title}</h1>
+          <p>{codeText.intro}</p>
         </div>
-  
-        <section className="panel">
-          <h2>即将实现</h2>
-          <div className="todo-list">
-            <div>输入本地 Godot / Unity 项目路径</div>
-            <div>识别项目类型</div>
-            <div>扫描脚本、场景、资源</div>
-            <div>代码搜索与文件摘要</div>
-            <div>AI 报错分析与修改建议</div>
+      </div>
+
+      <section className="panel">
+        <h2>{codeText.scanTitle}</h2>
+        <label className="form-field">
+          <span>{codeText.pathLabel}</span>
+          <input
+            value={projectPath}
+            onChange={(event) => setProjectPath(event.target.value)}
+            placeholder={codeText.pathPlaceholder}
+          />
+        </label>
+
+        <div className="action-row">
+          <button onClick={handleScan} disabled={loading}>
+            {loading ? codeText.scanning : codeText.scan}
+          </button>
+        </div>
+
+        {error && <div className="error-box">{error}</div>}
+      </section>
+
+      {scanResult && (
+        <>
+          <section className="panel">
+            <div className="result-header">
+              <div>
+                <h2>{scanResult.project_name}</h2>
+                <p>{scanResult.project_path}</p>
+              </div>
+              <div className="project-type-pill">
+                {formatProjectType(scanResult.project_type, texts.common)}
+              </div>
+            </div>
+
+            <div className="summary-grid">
+              <SummaryCard label={codeText.summary.totalFiles} value={scanResult.summary.total_files} />
+              <SummaryCard label={codeText.summary.scripts} value={scanResult.summary.script_count} />
+              <SummaryCard label={codeText.summary.scenes} value={scanResult.summary.scene_count} />
+              <SummaryCard label={codeText.summary.resources} value={scanResult.summary.resource_count} />
+              <SummaryCard label={codeText.summary.configs} value={scanResult.summary.config_count} />
+              <SummaryCard label={codeText.summary.size} value={formatBytes(scanResult.summary.total_size_bytes)} />
+            </div>
+
+            {scanResult.summary.skipped_directories.length > 0 && (
+              <div className="scan-note">
+                {codeText.summary.skipped} {scanResult.summary.skipped_directories.join(", ")}
+              </div>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>{codeText.searchTitle}</h2>
+            <div className="search-row">
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={codeText.searchPlaceholder}
+              />
+              <button onClick={handleSearch} disabled={searchLoading}>
+                {searchLoading ? codeText.searching : codeText.search}
+              </button>
+            </div>
+
+            {searchError && <div className="error-box">{searchError}</div>}
+            {searchResult && (
+              <SearchResults
+                result={searchResult}
+                texts={texts}
+                onSelectMatch={(match) =>
+                  handleSelectFile(
+                    {
+                      name: match.name,
+                      relative_path: match.relative_path,
+                      extension: match.extension,
+                      size_bytes: 0,
+                    },
+                    match.line_number,
+                  )
+                }
+              />
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>{codeText.errorLogTitle}</h2>
+            <textarea
+              value={errorLog}
+              onChange={(event) => setErrorLog(event.target.value)}
+              placeholder={codeText.errorLogPlaceholder}
+              rows={6}
+            />
+            <div className="action-row">
+              <button onClick={handleAnalyzeErrorLog} disabled={errorAnalysisLoading}>
+                {errorAnalysisLoading ? codeText.analyzing : codeText.analyzeLog}
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  setErrorLog("");
+                  setErrorAnalysis(null);
+                  setErrorAnalysisError("");
+                }}
+                disabled={errorAnalysisLoading}
+              >
+                {texts.common.clear}
+              </button>
+            </div>
+
+            {errorAnalysisError && <div className="error-box">{errorAnalysisError}</div>}
+            {errorAnalysis && (
+              <ErrorAnalysisResult
+                result={errorAnalysis}
+                texts={texts}
+                onSelectFile={(file) =>
+                  handleSelectFile(
+                    {
+                      name: file.name,
+                      relative_path: file.relative_path,
+                      extension: file.extension,
+                      size_bytes: 0,
+                    },
+                    file.line_number,
+                  )
+                }
+              />
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="tabs">
+              {Object.entries(codeText.groups).map(([group, label]) => (
+                <button
+                  key={group}
+                  className={activeGroup === group ? "tab-button active" : "tab-button"}
+                  onClick={() => setActiveGroup(group)}
+                >
+                  {label} ({scanResult.files[group].length})
+                </button>
+              ))}
+            </div>
+
+            <FileList
+              files={scanResult.files[activeGroup]}
+              selectedFile={selectedFile}
+              onSelectFile={handleSelectFile}
+              texts={codeText}
+            />
+          </section>
+
+          <FilePreview
+            file={selectedFile}
+            preview={filePreview}
+            loading={previewLoading}
+            error={previewError}
+            structure={fileStructure}
+            structureLoading={structureLoading}
+            structureError={structureError}
+            selectedLine={selectedLine}
+            onSelectLine={setSelectedLine}
+            texts={texts}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }) {
+  return (
+    <div className="summary-card">
+      <div>{label}</div>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function FileList({ files, selectedFile, onSelectFile, texts }) {
+  if (files.length === 0) {
+    return <div className="empty-state">{texts.emptyCategory}</div>;
+  }
+
+  return (
+    <div className="file-list">
+      {files.map((file) => (
+        <button
+          className={
+            selectedFile?.relative_path === file.relative_path
+              ? "file-row active"
+              : "file-row"
+          }
+          key={file.relative_path}
+          onClick={() => onSelectFile(file)}
+        >
+          <div>
+            <strong>{file.name}</strong>
+            <span>{file.relative_path}</span>
           </div>
-        </section>
+          <span>{formatBytes(file.size_bytes)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SearchResults({ result, texts, onSelectMatch }) {
+  const codeText = texts.code;
+
+  if (result.matches.length === 0) {
+    return (
+      <div className="empty-state">
+        {codeText.noMatches.replace("{count}", result.summary.scanned_files)}
       </div>
     );
   }
-  
-  export default CodeAgentPage;
+
+  return (
+    <div className="search-results">
+      <div className="scan-note">
+        {codeText.matches
+          .replace("{matches}", result.summary.match_count)
+          .replace("{files}", result.summary.scanned_files)}
+        {result.summary.truncated ? codeText.limited : ""}
+      </div>
+
+      {result.matches.map((match, index) => (
+        <button
+          className="search-result-row"
+          key={`${match.relative_path}-${match.line_number}-${index}`}
+          onClick={() => onSelectMatch(match)}
+        >
+          <div>
+            <strong>{match.relative_path}</strong>
+            <span>{formatLineLabel(texts.common, match.line_number)}</span>
+          </div>
+          <code>{match.line_text}</code>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ErrorAnalysisResult({ result, texts, onSelectFile }) {
+  const codeText = texts.code;
+
+  return (
+    <div className="error-analysis">
+      <div className="scan-note">
+        {codeText.engine} {formatProjectType(result.summary.detected_engine, texts.common)} ·{" "}
+        {result.summary.reference_count} {codeText.references} ·{" "}
+        {result.summary.related_file_count} {codeText.relatedFiles}
+      </div>
+
+      {result.summary.keywords.length > 0 && (
+        <div className="keyword-list">
+          {result.summary.keywords.map((keyword) => (
+            <span key={keyword}>{keyword}</span>
+          ))}
+        </div>
+      )}
+
+      {result.related_files.length > 0 ? (
+        <div className="related-file-list">
+          {result.related_files.map((file) => (
+            <button
+              className="related-file-row"
+              key={file.relative_path}
+              onClick={() => onSelectFile(file)}
+            >
+              <div>
+                <strong>{file.relative_path}</strong>
+                <span>
+                  {file.reason}
+                  {file.line_number ? ` · ${formatLineLabel(texts.common, file.line_number)}` : ""}
+                </span>
+              </div>
+              <code>{file.score}</code>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">{codeText.noRelated}</div>
+      )}
+
+      {result.references.length > 0 && (
+        <div className="reference-list">
+          <h3>{codeText.parsedReferences}</h3>
+          {result.references.map((reference, index) => (
+            <div className="reference-row" key={`${reference.source}-${index}`}>
+              <strong>{reference.source}</strong>
+              <span>
+                {reference.line_number
+                  ? formatLineLabel(texts.common, reference.line_number)
+                  : codeText.lineUnknown}
+                {reference.matched_file ? ` · ${reference.matched_file}` : ""}
+              </span>
+              <small>{reference.message}</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilePreview({
+  file,
+  preview,
+  loading,
+  error,
+  structure,
+  structureLoading,
+  structureError,
+  selectedLine,
+  onSelectLine,
+  texts,
+}) {
+  if (!file) {
+    return null;
+  }
+
+  const sizeBytes = preview?.size_bytes ?? file.size_bytes;
+  const codeText = texts.code;
+
+  return (
+    <section className="panel">
+      <div className="preview-header">
+        <div>
+          <h2>{file.name}</h2>
+          <p>{file.relative_path}</p>
+        </div>
+        <span>{formatBytes(sizeBytes)}</span>
+      </div>
+
+      {loading && <div className="empty-state">{codeText.loadingPreview}</div>}
+      {error && <div className="error-box">{error}</div>}
+      {preview && !preview.is_text && (
+        <div className="empty-state">{preview.message || codeText.cannotPreview}</div>
+      )}
+      {preview?.is_text && (
+        <CodePreview content={preview.content} selectedLine={selectedLine} />
+      )}
+
+      <StructureOutline
+        structure={structure}
+        loading={structureLoading}
+        error={structureError}
+        onSelectLine={onSelectLine}
+        texts={texts}
+      />
+    </section>
+  );
+}
+
+function CodePreview({ content, selectedLine }) {
+  return (
+    <pre className="file-preview">
+      {content.split("\n").map((line, index) => {
+        const lineNumber = index + 1;
+        return (
+          <span
+            className={selectedLine === lineNumber ? "code-line active" : "code-line"}
+            key={lineNumber}
+          >
+            <span className="code-line-number">{lineNumber}</span>
+            <span className="code-line-text">{line || " "}</span>
+          </span>
+        );
+      })}
+    </pre>
+  );
+}
+
+function StructureOutline({ structure, loading, error, onSelectLine, texts }) {
+  const codeText = texts.code;
+
+  if (loading) {
+    return <div className="empty-state">{codeText.analyzingStructure}</div>;
+  }
+
+  if (error) {
+    return <div className="error-box">{error}</div>;
+  }
+
+  if (!structure) {
+    return null;
+  }
+
+  if (!structure.supported) {
+    return <div className="empty-state">{structure.message}</div>;
+  }
+
+  if (structure.symbols.length === 0) {
+    return <div className="empty-state">{structure.message || codeText.noSymbols}</div>;
+  }
+
+  return (
+    <div className="structure-panel">
+      <h3>{codeText.structureTitle}</h3>
+      <div className="structure-list">
+        {structure.symbols.map((symbol, index) => (
+          <button
+            className="structure-row"
+            key={`${symbol.kind}-${symbol.name}-${symbol.line_number}-${index}`}
+            onClick={() => onSelectLine(symbol.line_number)}
+          >
+            <span>{symbol.kind}</span>
+            <strong>{symbol.name}</strong>
+            <code>{formatLineLabel(texts.common, symbol.line_number)}</code>
+            <small>{symbol.signature}</small>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatProjectType(projectType, commonTexts) {
+  if (projectType === "godot") return commonTexts.godot;
+  if (projectType === "unity") return commonTexts.unity;
+  return commonTexts.unknown;
+}
+
+function formatLineLabel(commonTexts, lineNumber) {
+  return commonTexts.line.replace("{line}", lineNumber);
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export default CodeAgentPage;

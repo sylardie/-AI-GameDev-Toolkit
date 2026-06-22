@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import DesignGeneratorPage from "./pages/DesignGeneratorPage";
 import CodeAgentPage from "./pages/CodeAgentPage";
 import ArtPipelinePage from "./pages/ArtPipelinePage";
+import AssetToolsPage from "./pages/AssetToolsPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const router = createBrowserRouter([
@@ -27,6 +28,10 @@ const router = createBrowserRouter([
       {
         path: "art",
         element: <ArtPipelinePage />,
+      },
+      {
+        path: "assets",
+        element: <AssetToolsPage />,
       },
       {
         path: "settings",
