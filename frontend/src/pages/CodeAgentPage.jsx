@@ -7,12 +7,24 @@ import {
   scanProject,
   searchProject,
 } from "../api/codeApi";
-import RuntimeNotice from "../components/RuntimeNotice";
+import { isLlmReady } from "../api/localSettings";
+import { useLocalSettings } from "../api/useLocalSettings";
+import {
+  canShowItemInFolder,
+  chooseFolder,
+  isDesktopRuntime,
+  showProjectFileInFolder,
+} from "../api/desktopApi";
+import AiRequiredNotice from "../components/AiRequiredNotice";
+import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/I18nContext";
 
 function CodeAgentPage() {
   const { texts } = useI18n();
   const codeText = texts.code;
+  const { settings } = useLocalSettings();
+  const llmReady = isLlmReady(settings);
+  const [activeTab, setActiveTab] = useState("scan");
   const [projectPath, setProjectPath] = useState("");
   const [scanResult, setScanResult] = useState(null);
   const [activeGroup, setActiveGroup] = useState("scripts");
@@ -59,11 +71,24 @@ function CodeAgentPage() {
       const data = await scanProject(projectPath.trim());
       setScanResult(data);
       setActiveGroup("scripts");
+      setActiveTab("files");
     } catch (err) {
       setError(err.message || codeText.errors.scan);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleChooseProjectFolder() {
+    const selectedPath = await chooseFolder("Choose Unity or Godot Project Folder");
+    if (!selectedPath) return;
+    setProjectPath(selectedPath);
+    setError("");
+  }
+
+  async function handleShowFileInFolder(file) {
+    if (!scanResult || !file) return;
+    await showProjectFileInFolder(scanResult.project_path, file.relative_path);
   }
 
   async function handleSelectFile(file, lineNumber = null) {
@@ -158,13 +183,21 @@ function CodeAgentPage() {
       </div>
 
       <section className="panel">
-        <div className="section-header-row">
-          <h2>{codeText.scanTitle}</h2>
-          <span className="runtime-badge">Local-only</span>
-        </div>
-        <RuntimeNotice title="Local Unity / Godot project scan" badge="Local-only">
-          The backend can only scan project paths available on the same PC. A cloud version should use project ZIP upload, Git repository import, or a local companion agent.
-        </RuntimeNotice>
+        <PageTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { id: "scan", label: codeText.scanTitle },
+            { id: "files", label: codeText.filesTab || "Files" },
+            { id: "search", label: codeText.searchTitle },
+            { id: "logs", label: codeText.errorLogTitle },
+          ]}
+        />
+      </section>
+
+      {activeTab === "scan" && (
+      <section className="panel">
+        <h2>{codeText.scanTitle}</h2>
         <label className="form-field">
           <span>{codeText.pathLabel}</span>
           <input
@@ -175,6 +208,11 @@ function CodeAgentPage() {
         </label>
 
         <div className="action-row">
+          {isDesktopRuntime() && (
+            <button className="secondary-button" onClick={handleChooseProjectFolder} disabled={loading}>
+              {codeText.chooseProjectFolder}
+            </button>
+          )}
           <button onClick={handleScan} disabled={loading}>
             {loading ? codeText.scanning : codeText.scan}
           </button>
@@ -182,9 +220,9 @@ function CodeAgentPage() {
 
         {error && <div className="error-box">{error}</div>}
       </section>
+      )}
 
-      {scanResult && (
-        <>
+      {scanResult && activeTab === "scan" && (
           <section className="panel">
             <div className="result-header">
               <div>
@@ -211,7 +249,9 @@ function CodeAgentPage() {
               </div>
             )}
           </section>
+      )}
 
+      {scanResult && activeTab === "search" && (
           <section className="panel">
             <h2>{codeText.searchTitle}</h2>
             <div className="search-row">
@@ -245,9 +285,18 @@ function CodeAgentPage() {
               />
             )}
           </section>
+      )}
 
+      {scanResult && activeTab === "logs" && (
           <section className="panel">
             <h2>{codeText.errorLogTitle}</h2>
+            {!llmReady && (
+              <AiRequiredNotice
+                title={texts.ai?.requiredTitle || "AI is not configured"}
+                message={texts.ai?.llmRequired || "Configure an LLM before using this AI feature."}
+                actionLabel={texts.ai?.goSettings || "Open Settings"}
+              />
+            )}
             <textarea
               value={errorLog}
               onChange={(event) => setErrorLog(event.target.value)}
@@ -255,7 +304,7 @@ function CodeAgentPage() {
               rows={6}
             />
             <div className="action-row">
-              <button onClick={handleAnalyzeErrorLog} disabled={errorAnalysisLoading}>
+              <button onClick={handleAnalyzeErrorLog} disabled={errorAnalysisLoading || !llmReady}>
                 {errorAnalysisLoading ? codeText.analyzing : codeText.analyzeLog}
               </button>
               <button
@@ -290,7 +339,10 @@ function CodeAgentPage() {
               />
             )}
           </section>
+      )}
 
+      {scanResult && activeTab === "files" && (
+        <>
           <section className="panel">
             <div className="tabs">
               {Object.entries(codeText.groups).map(([group, label]) => (
@@ -308,6 +360,7 @@ function CodeAgentPage() {
               files={scanResult.files[activeGroup]}
               selectedFile={selectedFile}
               onSelectFile={handleSelectFile}
+              onShowInFolder={handleShowFileInFolder}
               texts={codeText}
             />
           </section>
@@ -322,6 +375,7 @@ function CodeAgentPage() {
             structureError={structureError}
             selectedLine={selectedLine}
             onSelectLine={setSelectedLine}
+            onShowInFolder={() => handleShowFileInFolder(selectedFile)}
             texts={texts}
           />
         </>
@@ -339,7 +393,7 @@ function SummaryCard({ label, value }) {
   );
 }
 
-function FileList({ files, selectedFile, onSelectFile, texts }) {
+function FileList({ files, selectedFile, onSelectFile, onShowInFolder, texts }) {
   if (files.length === 0) {
     return <div className="empty-state">{texts.emptyCategory}</div>;
   }
@@ -347,7 +401,9 @@ function FileList({ files, selectedFile, onSelectFile, texts }) {
   return (
     <div className="file-list">
       {files.map((file) => (
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           className={
             selectedFile?.relative_path === file.relative_path
               ? "file-row active"
@@ -355,13 +411,32 @@ function FileList({ files, selectedFile, onSelectFile, texts }) {
           }
           key={file.relative_path}
           onClick={() => onSelectFile(file)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelectFile(file);
+            }
+          }}
         >
           <div>
             <strong>{file.name}</strong>
             <span>{file.relative_path}</span>
           </div>
-          <span>{formatBytes(file.size_bytes)}</span>
-        </button>
+          <div className="file-row-actions">
+            <span>{formatBytes(file.size_bytes)}</span>
+            {canShowItemInFolder() && (
+              <button
+                className="secondary-button inline-action-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onShowInFolder(file);
+                }}
+              >
+                {texts.openFolder}
+              </button>
+            )}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -477,6 +552,7 @@ function FilePreview({
   structureError,
   selectedLine,
   onSelectLine,
+  onShowInFolder,
   texts,
 }) {
   if (!file) {
@@ -493,7 +569,14 @@ function FilePreview({
           <h2>{file.name}</h2>
           <p>{file.relative_path}</p>
         </div>
-        <span>{formatBytes(sizeBytes)}</span>
+        <div className="preview-actions">
+          <span>{formatBytes(sizeBytes)}</span>
+          {canShowItemInFolder() && (
+            <button className="secondary-button inline-action-button" onClick={onShowInFolder}>
+              {codeText.openContainingFolder}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading && <div className="empty-state">{codeText.loadingPreview}</div>}

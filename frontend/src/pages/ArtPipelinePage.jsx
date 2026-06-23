@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { isComfyReady, isImageProviderReady, isLlmReady } from "../api/localSettings";
+import { useLocalSettings } from "../api/useLocalSettings";
 import {
   analyzeArtImage,
   createStyleProfile,
@@ -8,10 +10,10 @@ import {
   generateComfyImage,
   generateArtPrompt,
   getStyleProfiles,
-  submitComfyPrompt,
 } from "../api/artApi";
-import RuntimeNotice from "../components/RuntimeNotice";
 import { downloadFile } from "../api/fileApi";
+import AiRequiredNotice from "../components/AiRequiredNotice";
+import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/I18nContext";
 
 const assetTypeValues = ["character", "item", "environment", "ui_icon", "sprite", "tileset", "concept_art"];
@@ -21,6 +23,12 @@ const engineTargetValues = ["godot", "unity", "generic"];
 function ArtPipelinePage() {
   const { texts } = useI18n();
   const artText = texts.art;
+  const { settings } = useLocalSettings();
+  const llmReady = isLlmReady(settings);
+  const comfyReady = isComfyReady(settings);
+  const imageProviderReady = isImageProviderReady(settings);
+  const [activeTab, setActiveTab] = useState("style");
+
   const [description, setDescription] = useState(artText.exampleDescription);
   const [assetType, setAssetType] = useState("character");
   const [style, setStyle] = useState("pixel_art");
@@ -28,17 +36,20 @@ function ArtPipelinePage() {
   const [mood, setMood] = useState(artText.defaultMood);
   const [colorPalette, setColorPalette] = useState(artText.defaultPalette);
   const [result, setResult] = useState(null);
-  const [comfyResult, setComfyResult] = useState(null);
-  const [comfyLoading, setComfyLoading] = useState(false);
-  const [comfyError, setComfyError] = useState("");
+  const [profileName, setProfileName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [profiles, setProfiles] = useState([]);
   const [profileError, setProfileError] = useState("");
+  const [styleProfileId, setStyleProfileId] = useState("");
+  const selectedProfile = useMemo(
+    () => profiles.find((profile) => profile.id === styleProfileId) || null,
+    [profiles, styleProfileId],
+  );
+
   const [imagePrompt, setImagePrompt] = useState(artText.imagePromptExample);
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [styleProfileId, setStyleProfileId] = useState("");
   const [imageSize, setImageSize] = useState("1024x1024");
   const [imageCount, setImageCount] = useState(1);
   const [imageResult, setImageResult] = useState(null);
@@ -53,7 +64,7 @@ function ArtPipelinePage() {
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
-  const [profileName, setProfileName] = useState("");
+  const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
     loadProfiles();
@@ -64,6 +75,13 @@ function ArtPipelinePage() {
       if (analysisPreview) URL.revokeObjectURL(analysisPreview);
     };
   }, [analysisPreview]);
+
+  const tabs = [
+    { id: "style", label: artText.tabs?.style || "Style Prompt" },
+    { id: "image", label: artText.tabs?.image || artText.imageGenerationTitle },
+    { id: "analyze", label: artText.tabs?.analyze || artText.imageAnalyzeTitle },
+    { id: "library", label: artText.tabs?.library || artText.styleLibraryTitle },
+  ];
 
   async function loadProfiles() {
     try {
@@ -93,15 +111,14 @@ function ArtPipelinePage() {
 
     setLoading(true);
     setError("");
-    setComfyError("");
-    setComfyResult(null);
     setResult(null);
 
     try {
       const data = await generateArtPrompt(buildPayload());
       setResult(data);
-      setImagePrompt(data.positive_prompt);
-      setNegativePrompt(data.negative_prompt);
+      setProfileName(data.title || "");
+      setImagePrompt(data.content_prompt || data.positive_prompt || "");
+      setNegativePrompt(data.negative_prompt || "");
     } catch (err) {
       setError(err.message || artText.errors.generate);
     } finally {
@@ -109,25 +126,64 @@ function ArtPipelinePage() {
     }
   }
 
-  async function handleSubmitComfy() {
-    if (!description.trim()) {
-      setComfyError(artText.errors.emptyDescription);
-      return;
+  async function saveGeneratedAsProfile() {
+    if (!result || !profileName.trim()) return;
+    try {
+      await createStyleProfile({
+        name: profileName.trim(),
+        content_prompt: result.content_prompt || "",
+        style_spec_prompt: result.style_spec_prompt || "",
+        negative_prompt: result.negative_prompt || "",
+        palette: result.palette || result.style_tags || [],
+        camera_view: "",
+        resolution_advice: "",
+        naming_advice: "",
+        suitable_asset_types: [result.asset_type].filter(Boolean),
+      });
+      await loadProfiles();
+      setActiveTab("library");
+    } catch (err) {
+      setProfileError(err.message);
     }
+  }
 
-    setComfyLoading(true);
-    setComfyError("");
-    setComfyResult(null);
+  async function saveAnalysisAsProfile() {
+    if (!analysis || !profileName.trim()) return;
 
     try {
-      const data = await submitComfyPrompt(buildPayload());
-      if (data.submitted) setComfyResult(data);
-      else setComfyError(data.message);
+      await createStyleProfile({
+        name: profileName.trim(),
+        ...analysis,
+      });
+      await loadProfiles();
+      setActiveTab("library");
     } catch (err) {
-      setComfyError(err.message || artText.errors.comfySubmit);
-    } finally {
-      setComfyLoading(false);
+      setProfileError(err.message);
     }
+  }
+
+  async function removeProfile(profileId) {
+    try {
+      await deleteStyleProfile(profileId);
+      if (styleProfileId === profileId) setStyleProfileId("");
+      await loadProfiles();
+    } catch (err) {
+      setProfileError(err.message);
+    }
+  }
+
+  function useProfile(profile) {
+    setStyleProfileId(profile.id);
+    if (profile.negative_prompt) setNegativePrompt(profile.negative_prompt);
+    setActiveTab("image");
+  }
+
+  function finalPrompt() {
+    return combinePrompt(imagePrompt, selectedProfile?.style_spec_prompt || "");
+  }
+
+  function finalNegativePrompt() {
+    return combineNegativePrompt(negativePrompt, selectedProfile?.negative_prompt || "");
   }
 
   async function handleImageGenerate() {
@@ -145,9 +201,9 @@ function ArtPipelinePage() {
     try {
       setImageResult(
         await generateArtImage({
-          prompt: imagePrompt.trim(),
-          negative_prompt: negativePrompt.trim(),
-          style_profile_id: styleProfileId,
+          prompt: finalPrompt(),
+          negative_prompt: finalNegativePrompt(),
+          style_profile_id: "",
           size: imageSize,
           count: Number(imageCount),
         }),
@@ -174,8 +230,8 @@ function ArtPipelinePage() {
     try {
       setComfyImageResult(
         await generateComfyImage({
-          prompt: imagePrompt.trim(),
-          negative_prompt: negativePrompt.trim(),
+          prompt: finalPrompt(),
+          negative_prompt: finalNegativePrompt(),
           size: imageSize,
           count: Number(imageCount),
           seed: -1,
@@ -209,30 +265,6 @@ function ArtPipelinePage() {
     }
   }
 
-  async function saveAnalysisAsProfile() {
-    if (!analysis || !profileName.trim()) return;
-
-    try {
-      await createStyleProfile({
-        name: profileName.trim(),
-        ...analysis,
-      });
-      await loadProfiles();
-    } catch (err) {
-      setProfileError(err.message);
-    }
-  }
-
-  async function removeProfile(profileId) {
-    try {
-      await deleteStyleProfile(profileId);
-      if (styleProfileId === profileId) setStyleProfileId("");
-      await loadProfiles();
-    } catch (err) {
-      setProfileError(err.message);
-    }
-  }
-
   function handleAnalysisFile(file) {
     if (analysisPreview) URL.revokeObjectURL(analysisPreview);
     setAnalysisFile(file);
@@ -260,166 +292,195 @@ function ArtPipelinePage() {
         </div>
       </div>
 
-      <section className="panel">
-        <h2>{artText.briefTitle}</h2>
-        <div className="art-form-grid">
-          <label className="form-field span-2">
-            <span>{artText.descriptionLabel}</span>
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder={artText.descriptionPlaceholder} />
-          </label>
+      <PageTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
-          <SelectField label={artText.assetType} value={assetType} onChange={setAssetType} options={assetTypeValues} labels={artText.assetTypes} />
-          <SelectField label={artText.style} value={style} onChange={setStyle} options={styleValues} labels={artText.styles} />
+      {activeTab === "style" && (
+        <section className="panel">
+          <h2>{artText.briefTitle}</h2>
+          {!llmReady && <AiNotice texts={texts} />}
+          <div className="art-form-grid">
+            <label className="form-field span-2">
+              <span>{artText.descriptionLabel}</span>
+              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder={artText.descriptionPlaceholder} />
+            </label>
 
-          <label className="form-field">
-            <span>{artText.engineTarget}</span>
-            <select value={engineTarget} onChange={(event) => setEngineTarget(event.target.value)}>
-              {engineTargetValues.map((value) => (
-                <option key={value} value={value}>{formatEngineLabel(value, texts.common)}</option>
-              ))}
-            </select>
-          </label>
+            <SelectField label={artText.assetType} value={assetType} onChange={setAssetType} options={assetTypeValues} labels={artText.assetTypes} />
+            <SelectField label={artText.style} value={style} onChange={setStyle} options={styleValues} labels={artText.styles} />
 
-          <label className="form-field">
-            <span>{artText.mood}</span>
-            <input value={mood} onChange={(event) => setMood(event.target.value)} placeholder={artText.moodPlaceholder} />
-          </label>
+            <label className="form-field">
+              <span>{artText.engineTarget}</span>
+              <select value={engineTarget} onChange={(event) => setEngineTarget(event.target.value)}>
+                {engineTargetValues.map((value) => (
+                  <option key={value} value={value}>{formatEngineLabel(value, texts.common)}</option>
+                ))}
+              </select>
+            </label>
 
-          <label className="form-field span-2">
-            <span>{artText.colorPalette}</span>
-            <input value={colorPalette} onChange={(event) => setColorPalette(event.target.value)} placeholder={artText.colorPlaceholder} />
-          </label>
-        </div>
+            <label className="form-field">
+              <span>{artText.mood}</span>
+              <input value={mood} onChange={(event) => setMood(event.target.value)} placeholder={artText.moodPlaceholder} />
+            </label>
 
-        <div className="action-row">
-          <button onClick={handleGenerate} disabled={loading}>
-            {loading ? texts.common.generating : artText.generate}
-          </button>
-          <button className="secondary-button" onClick={fillExample} disabled={loading}>
-            {texts.common.fillExample}
-          </button>
-        </div>
+            <label className="form-field span-2">
+              <span>{artText.colorPalette}</span>
+              <input value={colorPalette} onChange={(event) => setColorPalette(event.target.value)} placeholder={artText.colorPlaceholder} />
+            </label>
+          </div>
 
-        {error && <div className="error-box">{error}</div>}
-      </section>
+          <div className="action-row">
+            <button onClick={handleGenerate} disabled={loading || !llmReady}>
+              {loading ? texts.common.generating : artText.generate}
+            </button>
+            <button className="secondary-button" onClick={fillExample} disabled={loading}>
+              {texts.common.fillExample}
+            </button>
+          </div>
 
-      {result && (
-        <ArtPipelineResult
-          result={result}
-          texts={texts}
-          comfyResult={comfyResult}
-          comfyLoading={comfyLoading}
-          comfyError={comfyError}
-          onSubmitComfy={handleSubmitComfy}
-        />
+          {error && <div className="error-box">{error}</div>}
+          {result && (
+            <PromptResult
+              result={result}
+              profileName={profileName}
+              setProfileName={setProfileName}
+              onSave={saveGeneratedAsProfile}
+              texts={texts}
+            />
+          )}
+        </section>
       )}
 
-      <section className="panel">
-        <h2>{artText.imageGenerationTitle}</h2>
-        <RuntimeNotice title="ComfyUI runs locally" badge="Local-only">
-          Generate with ComfyUI requires a ComfyUI service reachable from this PC, usually http://127.0.0.1:8188. A cloud version should use a hosted worker or remote ComfyUI endpoint.
-        </RuntimeNotice>
-        <div className="art-form-grid">
-          <label className="form-field span-2">
-            <span>{artText.imagePrompt}</span>
-            <textarea value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} rows={5} />
-          </label>
-          <label className="form-field span-2">
-            <span>{artText.output.negative}</span>
-            <textarea value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} rows={3} />
-          </label>
-          <label className="form-field">
-            <span>{artText.styleProfile}</span>
-            <select value={styleProfileId} onChange={(event) => setStyleProfileId(event.target.value)}>
-              <option value="">{artText.noStyleProfile}</option>
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>{profile.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field">
-            <span>{artText.imageSize}</span>
-            <select value={imageSize} onChange={(event) => setImageSize(event.target.value)}>
-              <option value="1024x1024">1024x1024</option>
-              <option value="1024x1536">1024x1536</option>
-              <option value="1536x1024">1536x1024</option>
-            </select>
-          </label>
-          <label className="form-field">
-            <span>{artText.imageCount}</span>
-            <input type="number" min="1" max="4" value={imageCount} onChange={(event) => setImageCount(event.target.value)} />
-          </label>
-        </div>
-        <div className="action-row">
-          <button onClick={handleImageGenerate} disabled={imageLoading}>
-            {imageLoading ? texts.common.generating : artText.generateImage}
-          </button>
-          <button className="secondary-button" onClick={handleComfyImageGenerate} disabled={comfyImageLoading}>
-            {comfyImageLoading ? texts.common.generating : artText.generateComfyImage || "Generate with ComfyUI"}
-          </button>
-        </div>
-        {imageError && <div className="error-box">{imageError}</div>}
-        {comfyImageError && <div className="error-box">{comfyImageError}</div>}
-        {imageResult && <GeneratedImages result={imageResult} />}
-        {comfyImageResult && <GeneratedImages result={comfyImageResult} />}
-      </section>
+      {activeTab === "image" && (
+        <section className="panel">
+          <h2>{artText.imageGenerationTitle}</h2>
+          <div className="art-form-grid">
+            <label className="form-field span-2">
+              <span>{artText.imagePrompt}</span>
+              <textarea value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} rows={5} />
+            </label>
+            <label className="form-field span-2">
+              <span>{artText.output.negative}</span>
+              <textarea value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} rows={3} />
+            </label>
+            <label className="form-field">
+              <span>{artText.styleProfile}</span>
+              <select value={styleProfileId} onChange={(event) => setStyleProfileId(event.target.value)}>
+                <option value="">{artText.noStyleProfile}</option>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>{artText.imageSize}</span>
+              <select value={imageSize} onChange={(event) => setImageSize(event.target.value)}>
+                <option value="1024x1024">1024x1024</option>
+                <option value="1024x1536">1024x1536</option>
+                <option value="1536x1024">1536x1024</option>
+              </select>
+            </label>
+            <label className="form-field">
+              <span>{artText.imageCount}</span>
+              <input type="number" min="1" max="4" value={imageCount} onChange={(event) => setImageCount(event.target.value)} />
+            </label>
+          </div>
 
-      <section className="panel">
-        <h2>{artText.imageAnalyzeTitle}</h2>
-        <div className="art-form-grid">
-          <label className="form-field span-2">
-            <span>{artText.referenceImage}</span>
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleAnalysisFile(event.target.files?.[0] || null)} />
-          </label>
-          {analysisPreview && (
-            <div className="image-preview-card span-2">
-              <img src={analysisPreview} alt="" />
-            </div>
+          {selectedProfile && (
+            <OutputBlock title={artText.styleSpecPrompt} text={selectedProfile.style_spec_prompt} copyTextLabel={texts.common.copy} />
           )}
-        </div>
-        <div className="action-row">
-          <button onClick={handleAnalyzeImage} disabled={analysisLoading}>
-            {analysisLoading ? texts.common.generating : artText.analyzeImage}
-          </button>
-        </div>
-        {analysisError && <div className="error-box">{analysisError}</div>}
-        {analysis && (
-          <AnalysisResult
-            analysis={analysis}
-            profileName={profileName}
-            setProfileName={setProfileName}
-            onSave={saveAnalysisAsProfile}
-            texts={texts}
-          />
-        )}
-      </section>
 
-      <section className="panel">
-        <div className="section-header-row">
-          <h2>{artText.styleLibraryTitle}</h2>
-          <span>{profiles.length}</span>
-        </div>
-        {profileError && <div className="error-box">{profileError}</div>}
-        <div className="profile-list">
-          {profiles.map((profile) => (
-            <div className="profile-card" key={profile.id}>
-              <div>
-                <h3>{profile.name}</h3>
-                <p>{profile.style_spec_prompt}</p>
-                <div className="tag-list">
-                  {profile.palette.map((item) => <span key={item}>{item}</span>)}
+          <div className="action-row">
+            <button onClick={() => copyText(finalPrompt())} className="secondary-button">
+              {texts.common.copy}
+            </button>
+            <button onClick={handleImageGenerate} disabled={imageLoading || !imageProviderReady}>
+              {imageLoading ? texts.common.generating : artText.generateImage}
+            </button>
+            <button className="secondary-button" onClick={handleComfyImageGenerate} disabled={comfyImageLoading || !comfyReady}>
+              {comfyImageLoading ? texts.common.generating : artText.generateComfyImage || "Generate with ComfyUI"}
+            </button>
+          </div>
+          {!imageProviderReady && <div className="scan-note">{artText.imageProviderDisabled}</div>}
+          {!comfyReady && <div className="scan-note">{artText.comfyDisabled}</div>}
+          {imageError && <div className="error-box">{imageError}</div>}
+          {comfyImageError && <div className="error-box">{comfyImageError}</div>}
+          {imageResult && <GeneratedImages result={imageResult} />}
+          {comfyImageResult && <GeneratedImages result={comfyImageResult} />}
+        </section>
+      )}
+
+      {activeTab === "analyze" && (
+        <section className="panel">
+          <h2>{artText.imageAnalyzeTitle}</h2>
+          {!llmReady && <AiNotice texts={texts} />}
+          <div className="art-form-grid">
+            <ReferenceDropZone
+              texts={artText}
+              dragActive={dragActive}
+              setDragActive={setDragActive}
+              onFile={handleAnalysisFile}
+            />
+            {analysisPreview && (
+              <div className="image-preview-card span-2">
+                <img src={analysisPreview} alt="" />
+              </div>
+            )}
+          </div>
+          <div className="action-row">
+            <button onClick={handleAnalyzeImage} disabled={analysisLoading || !llmReady}>
+              {analysisLoading ? texts.common.generating : artText.analyzeImage}
+            </button>
+          </div>
+          {analysisError && <div className="error-box">{analysisError}</div>}
+          {analysis && (
+            <AnalysisResult
+              analysis={analysis}
+              profileName={profileName}
+              setProfileName={setProfileName}
+              onSave={saveAnalysisAsProfile}
+              texts={texts}
+            />
+          )}
+        </section>
+      )}
+
+      {activeTab === "library" && (
+        <section className="panel">
+          <div className="section-header-row">
+            <h2>{artText.styleLibraryTitle}</h2>
+            <span>{profiles.length}</span>
+          </div>
+          {profileError && <div className="error-box">{profileError}</div>}
+          <div className="profile-list">
+            {profiles.map((profile) => (
+              <div className="profile-card" key={profile.id}>
+                <div>
+                  <h3>{profile.name}</h3>
+                  <p>{profile.style_spec_prompt}</p>
+                  <div className="tag-list">
+                    {(profile.palette || []).map((item) => <span key={item}>{item}</span>)}
+                  </div>
+                </div>
+                <div className="action-row compact">
+                  <button className="secondary-button" onClick={() => useProfile(profile)}>{artText.useProfile}</button>
+                  <button className="secondary-button" onClick={() => removeProfile(profile.id)}>{texts.common.remove}</button>
                 </div>
               </div>
-              <div className="action-row compact">
-                <button className="secondary-button" onClick={() => setStyleProfileId(profile.id)}>{artText.useProfile}</button>
-                <button className="secondary-button" onClick={() => removeProfile(profile.id)}>{texts.common.remove || "Remove"}</button>
-              </div>
-            </div>
-          ))}
-          {profiles.length === 0 && <div className="empty-state">{artText.noProfiles}</div>}
-        </div>
-      </section>
+            ))}
+            {profiles.length === 0 && <div className="empty-state">{artText.noProfiles}</div>}
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+function AiNotice({ texts }) {
+  return (
+    <AiRequiredNotice
+      title={texts.ai?.requiredTitle || "AI is not configured"}
+      message={texts.ai?.llmRequired || "Configure an LLM before using this AI feature."}
+      actionLabel={texts.ai?.goSettings || "Open Settings"}
+    />
   );
 }
 
@@ -432,6 +493,32 @@ function SelectField({ label, value, onChange, options, labels }) {
           <option key={option} value={option}>{labels[option]}</option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function ReferenceDropZone({ texts, dragActive, setDragActive, onFile }) {
+  function handleDrop(event) {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) onFile(file);
+  }
+
+  return (
+    <label
+      className={dragActive ? "drop-zone active span-2" : "drop-zone span-2"}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={() => setDragActive(false)}
+      onDrop={handleDrop}
+    >
+      <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => onFile(event.target.files?.[0] || null)} />
+      <span>{texts.referenceImage}</span>
+      <strong>{texts.dropReferenceTitle || texts.referenceImage}</strong>
+      <small>{texts.dropReferenceHint || ""}</small>
     </label>
   );
 }
@@ -449,24 +536,28 @@ function GeneratedImages({ result }) {
   );
 }
 
-function AnalysisResult({ analysis, profileName, setProfileName, onSave, texts }) {
+function PromptResult({ result, profileName, setProfileName, onSave, texts }) {
   const artText = texts.art;
   return (
     <div className="result-block">
       <div className="analysis-grid">
-        <OutputBlock title={artText.contentPrompt} text={analysis.content_prompt} copyTextLabel={texts.common.copy} />
-        <OutputBlock title={artText.styleSpecPrompt} text={analysis.style_spec_prompt} copyTextLabel={texts.common.copy} />
-        <OutputBlock title={artText.output.negative} text={analysis.negative_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.contentPrompt} text={result.content_prompt || result.positive_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.styleSpecPrompt} text={result.style_spec_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.output.negative} text={result.negative_prompt} copyTextLabel={texts.common.copy} />
         <div className="result-block">
-          <h3>{artText.productionSpec}</h3>
-          <p>{analysis.camera_view}</p>
-          <p>{analysis.resolution_advice}</p>
-          <p>{analysis.naming_advice}</p>
+          <h3>{artText.palette}</h3>
           <div className="tag-list">
-            {analysis.palette.map((item) => <span key={item}>{item}</span>)}
-            {analysis.suitable_asset_types.map((item) => <span key={item}>{item}</span>)}
+            {(result.palette || result.style_tags || []).map((item) => <span key={item}>{item}</span>)}
           </div>
         </div>
+        {result.notes?.length > 0 && (
+          <div className="result-block">
+            <h3>{artText.notes || "Notes"}</h3>
+            <ul className="compact-list">
+              {result.notes.map((note, index) => <li key={index}>{note}</li>)}
+            </ul>
+          </div>
+        )}
       </div>
       <div className="action-row">
         <input value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder={artText.profileName} />
@@ -476,87 +567,26 @@ function AnalysisResult({ analysis, profileName, setProfileName, onSave, texts }
   );
 }
 
-function ArtPipelineResult({ result, texts, comfyResult, comfyLoading, comfyError, onSubmitComfy }) {
+function AnalysisResult({ analysis, profileName, setProfileName, onSave, texts }) {
   const artText = texts.art;
-
   return (
-    <section className="panel">
-      <div className="result-header">
-        <div>
-          <h2>{result.title}</h2>
-          <p>
-            {formatAssetLabel(result.asset_type, artText)} / {formatStyleLabel(result.style, artText)} /{" "}
-            {formatEngineLabel(result.engine_target, texts.common)}
-          </p>
-        </div>
-        <div className="result-actions">
-          <button className="secondary-button copy-button" onClick={() => copyAll(result, artText)}>
-            {texts.common.copyAll}
-          </button>
-          <button className="copy-button" onClick={onSubmitComfy} disabled={comfyLoading}>
-            {comfyLoading ? texts.common.submitting : artText.submitComfy}
-          </button>
-        </div>
-      </div>
-
-      {comfyResult && (
-        <div className="scan-note">
-          {artText.comfyResult}: {comfyResult.message} {comfyResult.prompt_id || ""}
-        </div>
-      )}
-      {comfyError && <div className="error-box">{comfyError}</div>}
-
-      <div className="art-output-grid">
-        <OutputBlock title={artText.output.positive} text={result.positive_prompt} copyTextLabel={texts.common.copy} />
-        <OutputBlock title={artText.output.negative} text={result.negative_prompt} copyTextLabel={texts.common.copy} />
-
+    <div className="result-block">
+      <div className="analysis-grid">
+        <OutputBlock title={artText.contentPrompt} text={analysis.content_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.styleSpecPrompt} text={analysis.style_spec_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.output.negative} text={analysis.negative_prompt} copyTextLabel={texts.common.copy} />
         <div className="result-block">
-          <div className="block-header">
-            <h3>{artText.output.tags}</h3>
-            <button className="secondary-button" onClick={() => copyText(result.style_tags.join(", "))}>{texts.common.copy}</button>
-          </div>
+          <h3>{artText.palette}</h3>
           <div className="tag-list">
-            {result.style_tags.map((tag) => <span key={tag}>{tag}</span>)}
+            {(analysis.palette || []).map((item) => <span key={item}>{item}</span>)}
           </div>
-        </div>
-
-        <div className="result-block">
-          <h3>{artText.output.naming}</h3>
-          <div className="rule-list">
-            {result.asset_naming_rules.map((rule) => (
-              <div className="rule-row" key={rule.category}>
-                <strong>{rule.category}</strong>
-                <code>{rule.pattern}</code>
-                <span>{rule.example}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="result-block">
-          <h3>{artText.output.importGuide}</h3>
-          <div className="guide-list">
-            {result.import_guide.map((step) => (
-              <div className="guide-step" key={step.title}>
-                <strong>{step.title}</strong>
-                <p>{step.detail}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="result-block">
-          <div className="block-header">
-            <h3>{artText.workflow}</h3>
-            <button className="secondary-button" onClick={() => copyText(JSON.stringify(result.comfyui_workflow, null, 2))}>
-              {texts.common.copy}
-            </button>
-          </div>
-          <p>{artText.workflowHint}</p>
-          <pre className="json-view">{JSON.stringify(result.comfyui_workflow, null, 2)}</pre>
         </div>
       </div>
-    </section>
+      <div className="action-row">
+        <input value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder={artText.profileName} />
+        <button onClick={onSave}>{artText.saveProfile}</button>
+      </div>
+    </div>
   );
 }
 
@@ -572,43 +602,22 @@ function OutputBlock({ title, text, copyTextLabel }) {
   );
 }
 
-function formatAssetLabel(value, artText) {
-  return artText.assetTypes[value] || formatFallbackLabel(value);
-}
-
-function formatStyleLabel(value, artText) {
-  return artText.styles[value] || formatFallbackLabel(value);
-}
-
 function formatEngineLabel(value, commonText) {
   if (value === "godot") return commonText.godot;
   if (value === "unity") return commonText.unity;
   return commonText.generic;
 }
 
-function formatFallbackLabel(value) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+function combinePrompt(contentPrompt, stylePrompt) {
+  return [contentPrompt.trim(), stylePrompt.trim()].filter(Boolean).join("\n\nStyle specification:\n");
+}
+
+function combineNegativePrompt(localNegative, profileNegative) {
+  return [localNegative.trim(), profileNegative.trim()].filter(Boolean).join(", ");
 }
 
 function copyText(text) {
-  navigator.clipboard.writeText(text);
-}
-
-function copyAll(result, artText) {
-  const text = [
-    `# ${result.title}`,
-    "",
-    `## ${artText.output.positive}`,
-    result.positive_prompt,
-    "",
-    `## ${artText.output.negative}`,
-    result.negative_prompt,
-    "",
-    `## ${artText.output.tags}`,
-    result.style_tags.join(", "),
-  ].join("\n");
-
-  copyText(text);
+  navigator.clipboard.writeText(text || "");
 }
 
 export default ArtPipelinePage;

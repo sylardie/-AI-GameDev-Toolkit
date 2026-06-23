@@ -2,11 +2,16 @@ import { useState } from "react";
 
 import { generateDesign } from "../api/designApi";
 import { downloadFile } from "../api/fileApi";
+import { isLlmReady } from "../api/localSettings";
+import { useLocalSettings } from "../api/useLocalSettings";
+import AiRequiredNotice from "../components/AiRequiredNotice";
 import { useI18n } from "../i18n/I18nContext";
 
 function DesignGeneratorPage() {
   const { texts } = useI18n();
   const designText = texts.design;
+  const { settings } = useLocalSettings();
+  const llmReady = isLlmReady(settings);
   const [idea, setIdea] = useState(designText.exampleIdea);
   const [result, setResult] = useState(null);
   const [selectedTableIndex, setSelectedTableIndex] = useState(0);
@@ -50,6 +55,13 @@ function DesignGeneratorPage() {
 
       <section className="panel">
         <h2>{designText.ideaTitle}</h2>
+        {!llmReady && (
+          <AiRequiredNotice
+            title={texts.ai?.requiredTitle || "AI is not configured"}
+            message={texts.ai?.llmRequired || "Configure an LLM before using this AI feature."}
+            actionLabel={texts.ai?.goSettings || "Open Settings"}
+          />
+        )}
         <textarea
           value={idea}
           onChange={(event) => setIdea(event.target.value)}
@@ -58,7 +70,7 @@ function DesignGeneratorPage() {
         />
 
         <div className="action-row">
-          <button onClick={handleGenerate} disabled={loading}>
+          <button onClick={handleGenerate} disabled={loading || !llmReady}>
             {loading ? texts.common.generating : designText.generate}
           </button>
           <button

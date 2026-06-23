@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { openConfigWorkbook, scanConfigFolder } from "../api/configsApi";
-import RuntimeNotice from "../components/RuntimeNotice";
+import { chooseFolder, isDesktopRuntime } from "../api/desktopApi";
+import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/I18nContext";
 
 const SAVED_CONFIG_PATHS_KEY = "ai-gamedev-config-manager-paths";
@@ -22,6 +23,7 @@ function ConfigManagerPage() {
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("scan");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SAVED_CONFIG_PATHS_KEY);
@@ -110,6 +112,7 @@ function ConfigManagerPage() {
       setScanResult(data);
       setSelectedWorkbookPath(data.workbooks[0]?.relative_path || "");
       setSelectedSheetName(data.workbooks[0]?.sheets[0]?.name || "");
+      setActiveTab("workbooks");
     } catch (err) {
       setError(err.message || configText.scanError);
     } finally {
@@ -119,6 +122,13 @@ function ConfigManagerPage() {
 
   async function handleScan() {
     await scanPath(path);
+  }
+
+  async function handleChooseFolder() {
+    const selectedPath = await chooseFolder("Choose Excel Config Folder");
+    if (!selectedPath) return;
+    setPath(selectedPath);
+    setError("");
   }
 
   function saveCurrentPath() {
@@ -217,13 +227,20 @@ function ConfigManagerPage() {
       </div>
 
       <section className="panel">
-        <div className="section-header-row">
-          <h2>{configText.scanTitle}</h2>
-          <span className="runtime-badge">Local-only</span>
-        </div>
-        <RuntimeNotice title="Local Excel folder scan" badge="Local-only">
-          The backend reads this path from the same machine running the app. A cloud version should replace this with Excel file upload or ZIP upload.
-        </RuntimeNotice>
+        <PageTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { id: "scan", label: configText.scanTitle },
+            { id: "workbooks", label: configText.workbooks },
+            { id: "details", label: configText.sheetDetails },
+          ]}
+        />
+      </section>
+
+      {activeTab === "scan" && (
+      <section className="panel">
+        <h2>{configText.scanTitle}</h2>
         <div className="search-row config-path-row">
           <label className="form-field">
             <span>{configText.pathLabel}</span>
@@ -236,6 +253,11 @@ function ConfigManagerPage() {
           <button onClick={handleScan} disabled={loading}>
             {loading ? configText.scanning : configText.scan}
           </button>
+          {isDesktopRuntime() && (
+            <button className="secondary-button" onClick={handleChooseFolder} disabled={loading}>
+              {configText.chooseFolder}
+            </button>
+          )}
           <button className="secondary-button" onClick={saveCurrentPath} disabled={loading}>
             {configText.savePath}
           </button>
@@ -293,6 +315,7 @@ function ConfigManagerPage() {
         {error && <div className="error-box">{error}</div>}
         {message && <div className="scan-note">{message}</div>}
       </section>
+      )}
 
       {scanResult && (
         <>
@@ -303,7 +326,7 @@ function ConfigManagerPage() {
             <SummaryCard label={configText.summary.skipped} value={scanResult.summary.skipped_temp_files} />
           </div>
 
-          <div className="module-grid config-manager-grid">
+          {activeTab === "workbooks" && (
             <section className="panel">
               <h2>{configText.workbooks}</h2>
               <label className="form-field workbook-search">
@@ -335,7 +358,9 @@ function ConfigManagerPage() {
                 )}
               </div>
             </section>
+          )}
 
+          {activeTab === "details" && (
             <section className="panel config-detail-panel">
               <div className="section-header-row">
                 <h2>{configText.sheetDetails}</h2>
@@ -420,7 +445,7 @@ function ConfigManagerPage() {
                 <div className="empty-state">{configText.noWorkbook}</div>
               )}
             </section>
-          </div>
+          )}
         </>
       )}
     </div>

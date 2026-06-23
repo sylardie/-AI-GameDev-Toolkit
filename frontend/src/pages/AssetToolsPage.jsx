@@ -7,6 +7,7 @@ import {
   removeImageBackground,
 } from "../api/assetsApi";
 import { downloadFile, getDownloadUrl } from "../api/fileApi";
+import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/I18nContext";
 
 function AssetToolsPage() {
@@ -16,16 +17,13 @@ function AssetToolsPage() {
   const [video, setVideo] = useState(null);
   const [videoInfo, setVideoInfo] = useState(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState("");
-  const [fps, setFps] = useState(16);
-  const [maxFrames, setMaxFrames] = useState(16);
+  const [targetFrameCount, setTargetFrameCount] = useState(16);
   const [columns, setColumns] = useState(4);
   const [frameWidth, setFrameWidth] = useState(128);
   const [frameHeight, setFrameHeight] = useState(128);
   const [metadataTarget, setMetadataTarget] = useState("godot");
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
-  const [extractionMode, setExtractionMode] = useState("fps");
-  const [frameInterval, setFrameInterval] = useState(2);
   const [transparentColor, setTransparentColor] = useState("#000000");
   const [transparentTolerance, setTransparentTolerance] = useState(24);
   const [transparentFeather, setTransparentFeather] = useState(16);
@@ -46,6 +44,7 @@ function AssetToolsPage() {
   const [imageResult, setImageResult] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
+  const [activeTab, setActiveTab] = useState("video");
 
   useEffect(() => {
     return () => {
@@ -55,15 +54,11 @@ function AssetToolsPage() {
   }, [videoPreviewUrl, imagePreviewUrl]);
 
   const duration = videoInfo?.duration || 0;
-  const estimatedFrames = useMemo(() => {
+  const estimatedSourceFrames = useMemo(() => {
     const rangeDuration = Math.max(0, (endTime || duration) - startTime);
     if (!rangeDuration) return 0;
-    const estimate =
-      extractionMode === "fps"
-        ? Math.ceil(rangeDuration * fps)
-        : Math.ceil((rangeDuration * (videoInfo?.fps || 30)) / frameInterval);
-    return Math.min(maxFrames, Math.max(0, estimate));
-  }, [duration, endTime, extractionMode, fps, frameInterval, maxFrames, startTime, videoInfo]);
+    return Math.max(1, Math.round(rangeDuration * (videoInfo?.fps || 30)));
+  }, [duration, endTime, startTime, videoInfo]);
 
   const selectedFrameItems = useMemo(
     () => result?.frames.filter((frame) => selectedFrames.includes(frame.index)) || [],
@@ -110,6 +105,7 @@ function AssetToolsPage() {
       setFrameHeight(size.height);
       setStartTime(0);
       setEndTime(loadedDuration);
+      setTargetFrameCount((current) => Math.min(current, Math.max(1, Math.round(loadedDuration * 30))));
     };
   }
 
@@ -126,6 +122,10 @@ function AssetToolsPage() {
       setError(assetText.errors.noFile);
       return;
     }
+    if (estimatedSourceFrames > 0 && targetFrameCount > estimatedSourceFrames) {
+      setError(assetText.errors.targetFramesTooHigh.replace("{count}", estimatedSourceFrames));
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -136,22 +136,24 @@ function AssetToolsPage() {
     try {
       const data = await generateSpritesheet({
         video,
-        fps,
-        maxFrames,
+        fps: 16,
+        maxFrames: targetFrameCount,
+        targetFrameCount,
         columns,
         frameWidth,
         frameHeight,
         metadataTarget,
         startTime,
         endTime,
-        extractionMode,
-        frameInterval,
+        extractionMode: "fps",
+        frameInterval: 1,
         dedupeEnabled: false,
         dedupeThreshold: 96,
       });
       setResult(data);
       setSelectedFrames(data.frames.map((frame) => frame.index));
       setCacheBust(Date.now());
+      setActiveTab("cleanup");
     } catch (err) {
       setError(err.message || assetText.errors.generate);
     } finally {
@@ -174,11 +176,12 @@ function AssetToolsPage() {
         frameWidth,
         frameHeight,
         metadataTarget,
-        gifFps: fps,
+        gifFps: 16,
       });
       setResult(data);
       setSelectedFrames(data.frames.map((frame) => frame.index));
       setCacheBust(Date.now());
+      setActiveTab("result");
     } catch (err) {
       setError(err.message || assetText.errors.generate);
     } finally {
@@ -202,7 +205,7 @@ function AssetToolsPage() {
         frameWidth,
         frameHeight,
         metadataTarget,
-        gifFps: fps,
+        gifFps: 16,
         transparentColor,
         transparentTolerance,
         transparentFeather,
@@ -281,6 +284,20 @@ function AssetToolsPage() {
       </div>
 
       <section className="panel">
+        <PageTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { id: "video", label: assetText.videoTitle },
+            { id: "cleanup", label: assetText.previewCleanup },
+            { id: "result", label: assetText.resultTitle },
+            { id: "image", label: assetText.imageTitle },
+          ]}
+        />
+      </section>
+
+      {activeTab === "video" && (
+      <section className="panel">
         <div className="section-step">
           <span>1</span>
           <h2>{assetText.videoTitle}</h2>
@@ -299,7 +316,7 @@ function AssetToolsPage() {
             <div className="asset-info span-2">
               <strong>{videoInfo.name}</strong>
               <span>
-                {videoInfo.width}x{videoInfo.height} / {assetText.duration}: {formatSeconds(videoInfo.duration)} / {assetText.estimatedFrames}: {estimatedFrames}
+                {videoInfo.width}x{videoInfo.height} / {assetText.duration}: {formatSeconds(videoInfo.duration)} / {assetText.estimatedFrames}: {estimatedSourceFrames}
               </span>
             </div>
           )}
@@ -323,21 +340,16 @@ function AssetToolsPage() {
             <NumberField label={assetText.endSeconds} value={endTime} onChange={setEndTime} step="0.01" />
           </div>
 
-          <label className="form-field">
-            <span>{assetText.extractionMode}</span>
-            <select value={extractionMode} onChange={(event) => setExtractionMode(event.target.value)}>
-              <option value="fps">{assetText.fpsMode}</option>
-              <option value="interval">{assetText.intervalMode}</option>
-            </select>
-          </label>
-
-          {extractionMode === "fps" ? (
-            <NumberField label={assetText.fps} value={fps} onChange={setFps} />
-          ) : (
-            <NumberField label={assetText.frameInterval} value={frameInterval} onChange={setFrameInterval} />
-          )}
-
-          <NumberField label={assetText.maxFrames} value={maxFrames} onChange={setMaxFrames} />
+          <NumberField
+            label={assetText.targetFrames}
+            value={targetFrameCount}
+            onChange={(value) => setTargetFrameCount(clampFrameCount(value, estimatedSourceFrames))}
+            min={1}
+            max={estimatedSourceFrames || 512}
+          />
+          <div className="hint-box">
+            {assetText.targetFramesHint.replace("{count}", estimatedSourceFrames || "-")}
+          </div>
           <NumberField label={assetText.columns} value={columns} onChange={setColumns} />
           <NumberField label={assetText.frameWidth} value={frameWidth} onChange={setFrameWidth} />
           <NumberField label={assetText.frameHeight} value={frameHeight} onChange={setFrameHeight} />
@@ -359,8 +371,9 @@ function AssetToolsPage() {
         </div>
         {error && <div className="error-box">{error}</div>}
       </section>
+      )}
 
-      {result && (
+      {activeTab === "cleanup" && result && (
         <section className="panel">
           <div className="section-step">
             <span>2</span>
@@ -414,8 +427,10 @@ function AssetToolsPage() {
                   key={`${result.output_id}-${frame.index}`}
                   onClick={() => toggleFrame(frame.index)}
                 >
-                  <img src={outputUrl(frame.path)} alt={`frame ${frame.index}`} />
-                  <span>#{String(frame.index).padStart(3, "0")}</span>
+                  <img src={outputUrl(frame.path)} alt={`source frame ${frame.source_frame}`} />
+                  <span>
+                    {assetText.outputFrameShort} {String(frame.index).padStart(2, "0")} / {assetText.sourceFrameShort} {String(frame.source_frame + 1).padStart(3, "0")}
+                  </span>
                 </button>
               ))}
             </div>
@@ -425,7 +440,13 @@ function AssetToolsPage() {
         </section>
       )}
 
-      {result && (
+      {activeTab === "cleanup" && !result && (
+        <section className="panel">
+          <div className="empty-state">{assetText.previewCleanup}</div>
+        </section>
+      )}
+
+      {activeTab === "result" && result && (
         <section className="panel">
           <div className="section-step">
             <span>3</span>
@@ -490,6 +511,13 @@ function AssetToolsPage() {
         </section>
       )}
 
+      {activeTab === "result" && !result && (
+        <section className="panel">
+          <div className="empty-state">{assetText.resultTitle}</div>
+        </section>
+      )}
+
+      {activeTab === "image" && (
       <section className="panel">
         <div className="section-step">
           <span>4</span>
@@ -558,6 +586,7 @@ function AssetToolsPage() {
 
         {imageError && <div className="error-box">{imageError}</div>}
       </section>
+      )}
     </div>
   );
 }
@@ -673,11 +702,18 @@ function SummaryItem({ label, value }) {
   );
 }
 
-function NumberField({ label, value, onChange, step = "1" }) {
+function NumberField({ label, value, onChange, step = "1", min, max }) {
   return (
     <label className="form-field">
       <span>{label}</span>
-      <input type="number" step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <input
+        type="number"
+        step={step}
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
     </label>
   );
 }
@@ -731,6 +767,12 @@ function fitWithinLimit(width, height, limit) {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
   };
+}
+
+function clampFrameCount(value, estimatedSourceFrames) {
+  const fallbackMax = estimatedSourceFrames || 512;
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(1, Math.min(Math.floor(value), fallbackMax));
 }
 
 function formatSeconds(value) {

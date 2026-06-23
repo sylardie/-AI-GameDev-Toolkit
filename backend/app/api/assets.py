@@ -28,6 +28,7 @@ def create_spritesheet(
     video: UploadFile = File(...),
     fps: float = Form(default=16.0),
     max_frames: int = Form(default=16),
+    target_frame_count: int = Form(default=16),
     columns: int = Form(default=4),
     frame_width: int = Form(default=128),
     frame_height: int = Form(default=128),
@@ -48,6 +49,8 @@ def create_spritesheet(
         raise HTTPException(status_code=400, detail="FPS must be between 0 and 60.")
     if max_frames <= 0 or max_frames > 512:
         raise HTTPException(status_code=400, detail="Max frames must be between 1 and 512.")
+    if target_frame_count <= 0 or target_frame_count > 512:
+        raise HTTPException(status_code=400, detail="Target frame count must be between 1 and 512.")
     if columns <= 0 or columns > 64:
         raise HTTPException(status_code=400, detail="Columns must be between 1 and 64.")
     if frame_width <= 0 or frame_width > 2048 or frame_height <= 0 or frame_height > 2048:
@@ -76,6 +79,7 @@ def create_spritesheet(
             filename=video.filename or "video",
             fps=fps,
             max_frames=max_frames,
+            target_frame_count=target_frame_count,
             columns=columns,
             frame_width=frame_width,
             frame_height=frame_height,

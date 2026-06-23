@@ -15,6 +15,7 @@ def generate_spritesheet_from_video(
     filename: str,
     fps: float,
     max_frames: int,
+    target_frame_count: int,
     columns: int,
     frame_width: int,
     frame_height: int,
@@ -44,6 +45,7 @@ def generate_spritesheet_from_video(
         source_fps=source["fps"],
         fps=fps,
         max_frames=max_frames,
+        target_frame_count=target_frame_count,
         frame_width=frame_width,
         frame_height=frame_height,
         start_time=start_time,
@@ -59,6 +61,7 @@ def generate_spritesheet_from_video(
     )
     if not frames:
         raise ValueError("No frames could be extracted from the video.")
+    _save_frame_manifest(output_dir, frames)
 
     return export_spritesheet(
         output_id=output_id,
@@ -93,13 +96,14 @@ def export_spritesheet(
     rows = math.ceil(len(frame_files) / columns)
     sheet = Image.new("RGBA", (columns * frame_width, rows * frame_height), (0, 0, 0, 0))
     frame_items = []
+    frame_manifest = _load_frame_manifest(output_dir)
 
     for output_index, frame_file in enumerate(frame_files, start=1):
         image = Image.open(frame_file).convert("RGBA").resize((frame_width, frame_height), Image.Resampling.LANCZOS)
         x = ((output_index - 1) % columns) * frame_width
         y = ((output_index - 1) // columns) * frame_height
         sheet.paste(image, (x, y), image)
-        frame_items.append(_frame_info_from_file(output_index, frame_file, output_id))
+        frame_items.append(_frame_info_from_file(output_index, frame_file, output_id, frame_manifest))
 
     spritesheet_file = output_dir / f"{output_id}.png"
     metadata_file = output_dir / f"{output_id}_meta.json"
@@ -236,6 +240,7 @@ def _extract_frames(
     source_fps: float,
     fps: float,
     max_frames: int,
+    target_frame_count: int,
     frame_width: int,
     frame_height: int,
     start_time: float,
@@ -249,6 +254,22 @@ def _extract_frames(
     transparent_tolerance: int,
     transparent_feather: int,
 ) -> list[dict]:
+    if target_frame_count > 0:
+        return _extract_evenly_sampled_frames(
+            video_path=video_path,
+            frames_dir=frames_dir,
+            source_fps=source_fps,
+            target_frame_count=target_frame_count,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            start_time=start_time,
+            end_time=end_time,
+            transparent_enabled=transparent_enabled,
+            transparent_color=transparent_color,
+            transparent_tolerance=transparent_tolerance,
+            transparent_feather=transparent_feather,
+        )
+
     step = max(1, frame_interval if extraction_mode == "interval" else round(source_fps / fps))
     frames = []
     previous_kept: Image.Image | None = None
@@ -288,6 +309,103 @@ def _extract_frames(
             break
 
     return frames
+
+
+def _extract_evenly_sampled_frames(
+    video_path: Path,
+    frames_dir: Path,
+    source_fps: float,
+    target_frame_count: int,
+    frame_width: int,
+    frame_height: int,
+    start_time: float,
+    end_time: float,
+    transparent_enabled: bool,
+    transparent_color: str,
+    transparent_tolerance: int,
+    transparent_feather: int,
+) -> list[dict]:
+    eligible_frames = []
+    for source_index, _frame in enumerate(iio.imiter(video_path)):
+        timestamp = source_index / source_fps
+        if timestamp < start_time:
+            continue
+        if end_time > 0 and timestamp > end_time:
+            break
+        eligible_frames.append((source_index, timestamp))
+
+    total_frames = len(eligible_frames)
+    if total_frames == 0:
+        return []
+    if target_frame_count > total_frames:
+        raise ValueError(
+            f"Target frame count ({target_frame_count}) cannot be greater than source frame count ({total_frames})."
+        )
+
+    selected_positions = _even_sample_positions(total_frames, target_frame_count)
+    selected_lookup = {
+        eligible_frames[position][0]: {
+            "position": position,
+            "timestamp": eligible_frames[position][1],
+        }
+        for position in selected_positions
+    }
+    frames = []
+    for source_index, frame in enumerate(iio.imiter(video_path)):
+        selected = selected_lookup.get(source_index)
+        if not selected:
+            continue
+
+        timestamp = selected["timestamp"]
+        image = Image.fromarray(frame).convert("RGBA")
+        image = image.resize((frame_width, frame_height), Image.Resampling.LANCZOS)
+        if transparent_enabled:
+            image = _apply_transparency(image, transparent_color, transparent_tolerance, transparent_feather)
+
+        frame_index = len(frames) + 1
+        frame_file = frames_dir / f"frame_{frame_index:04d}.png"
+        image.save(frame_file)
+        frames.append(
+            {
+                "index": frame_index,
+                "source_frame": source_index,
+                "timestamp": timestamp,
+                "path": _frame_output_path(frames_dir.parent.name, frame_file.name),
+            }
+        )
+
+        if len(frames) >= target_frame_count:
+            break
+
+    return frames
+
+
+def _even_sample_positions(total_frames: int, target_frame_count: int) -> list[int]:
+    if target_frame_count <= 1:
+        return [0]
+    if target_frame_count == total_frames:
+        return list(range(total_frames))
+
+    last_index = total_frames - 1
+    positions = [
+        round(index * last_index / (target_frame_count - 1))
+        for index in range(target_frame_count)
+    ]
+
+    deduped = []
+    used = set()
+    for position in positions:
+        candidate = min(max(position, 0), last_index)
+        while candidate in used and candidate < last_index:
+            candidate += 1
+        while candidate in used and candidate > 0:
+            candidate -= 1
+        deduped.append(candidate)
+        used.add(candidate)
+
+    deduped[0] = 0
+    deduped[-1] = last_index
+    return sorted(deduped)
 
 
 def _apply_transparency(image: Image.Image, color: str, tolerance: int, feather: int = 16) -> Image.Image:
@@ -357,11 +475,13 @@ def _frame_number(path: Path) -> int:
     return int(path.stem.split("_")[-1])
 
 
-def _frame_info_from_file(index: int, frame_file: Path, output_id: str) -> dict:
+def _frame_info_from_file(index: int, frame_file: Path, output_id: str, frame_manifest: dict[int, dict] | None = None) -> dict:
+    saved_frame_number = _frame_number(frame_file)
+    manifest_item = (frame_manifest or {}).get(saved_frame_number, {})
     return {
         "index": index,
-        "source_frame": _frame_number(frame_file),
-        "timestamp": 0,
+        "source_frame": manifest_item.get("source_frame", max(0, saved_frame_number - 1)),
+        "timestamp": manifest_item.get("timestamp", 0),
         "path": _frame_output_path(output_id, frame_file.name),
     }
 
@@ -426,6 +546,27 @@ def _build_metadata(
 def _save_source(output_dir: Path, source: dict) -> None:
     with (output_dir / "source.json").open("w", encoding="utf-8") as file:
         json.dump(source, file, ensure_ascii=False, indent=2)
+
+
+def _save_frame_manifest(output_dir: Path, frames: list[dict]) -> None:
+    with (output_dir / "frames.json").open("w", encoding="utf-8") as file:
+        json.dump({"frames": frames}, file, ensure_ascii=False, indent=2)
+
+
+def _load_frame_manifest(output_dir: Path) -> dict[int, dict]:
+    manifest_file = output_dir / "frames.json"
+    if not manifest_file.exists():
+        return {}
+    with manifest_file.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+    items = data.get("frames", [])
+    if not isinstance(items, list):
+        return {}
+    return {
+        int(item.get("index")): item
+        for item in items
+        if isinstance(item, dict) and item.get("index") is not None
+    }
 
 
 def _load_source(output_dir: Path) -> dict | None:

@@ -20,13 +20,13 @@ from app.schemas.code import (
     ProjectStructureResponse,
 )
 
-router = APIRouter(prefix="/api/code", tags=["Code Agent"])
+router = APIRouter(prefix="/api/code", tags=["Project Assistant"])
 
 
 @router.get("/status")
 def code_agent_status():
     return {
-        "module": "Code Agent",
+        "module": "Project Assistant",
         "status": "ready",
         "message": "Godot / Unity scanning, file preview, search, structure extraction, and error-log analysis are available.",
     }

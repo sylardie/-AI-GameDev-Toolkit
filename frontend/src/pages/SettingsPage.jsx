@@ -7,7 +7,7 @@ import {
   testImageProviderConnection,
   testLlmConnection,
 } from "../api/settingsApi";
-import RuntimeNotice from "../components/RuntimeNotice";
+import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/I18nContext";
 
 const emptySettings = {
@@ -69,8 +69,10 @@ function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState("");
+  const [testResults, setTestResults] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("llm");
 
   useEffect(() => {
     loadSettings();
@@ -138,6 +140,10 @@ function SettingsPage() {
     setTesting(kind);
     setMessage("");
     setError("");
+    setTestResults((current) => ({
+      ...current,
+      [kind]: null,
+    }));
 
     try {
       const result =
@@ -147,12 +153,21 @@ function SettingsPage() {
             ? await testImageProviderConnection()
             : await testComfyConnection();
       if (result.ok) {
-        setMessage(result.message);
+        setTestResults((current) => ({
+          ...current,
+          [kind]: { ok: true, message: result.message },
+        }));
       } else {
-        setError(result.message);
+        setTestResults((current) => ({
+          ...current,
+          [kind]: { ok: false, message: result.message },
+        }));
       }
     } catch (err) {
-      setError(err.message);
+      setTestResults((current) => ({
+        ...current,
+        [kind]: { ok: false, message: err.message },
+      }));
     } finally {
       setTesting("");
     }
@@ -208,25 +223,18 @@ function SettingsPage() {
       </div>
 
       <section className="panel">
-        <h2>Runtime</h2>
-        <RuntimeNotice
-          title="Local deployment mode"
-          badge="Local mode"
-          items={[
-            {
-              label: "Local backend",
-              detail: "Paths, generated outputs, uploaded media, and ComfyUI requests are handled by the FastAPI process on this PC.",
-            },
-            {
-              label: "Future cloud mode",
-              detail: "Hosted deployments should use uploads, repository connections, isolated storage, and remote generation workers.",
-            },
+        <PageTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { id: "llm", label: settingsText.llmTitle },
+            { id: "comfy", label: settingsText.comfyTitle },
+            { id: "image", label: settingsText.imageProviderTitle },
           ]}
-        >
-          This setup is intended for a local PC app or local web app. Online deployments cannot read a user's local disk paths directly.
-        </RuntimeNotice>
+        />
       </section>
 
+      {activeTab === "llm" && (
       <section className="panel">
         <div className="section-header-row">
           <h2>{settingsText.llmTitle}</h2>
@@ -277,9 +285,12 @@ function SettingsPage() {
           <button className="secondary-button" onClick={() => runTest("llm")} disabled={testing === "llm"}>
             {testing === "llm" ? texts.common.testing : `${texts.common.test} LLM`}
           </button>
+          <ConnectionTestStatus result={testResults.llm} texts={settingsText} />
         </div>
       </section>
+      )}
 
+      {activeTab === "image" && (
       <section className="panel">
         <div className="section-header-row">
           <div>
@@ -346,15 +357,15 @@ function SettingsPage() {
           <button className="secondary-button" onClick={() => runTest("image")} disabled={testing === "image"}>
             {testing === "image" ? texts.common.testing : `${texts.common.test} Image Provider`}
           </button>
+          <ConnectionTestStatus result={testResults.image} texts={settingsText} />
         </div>
       </section>
+      )}
 
+      {activeTab === "comfy" && (
       <section className="panel">
         <div className="section-header-row">
-          <div>
-            <h2>{settingsText.comfyTitle}</h2>
-            <p>Local-only integration. Use a local endpoint such as http://127.0.0.1:8188; a cloud version should call a remote ComfyUI worker instead.</p>
-          </div>
+          <h2>{settingsText.comfyTitle}</h2>
           <label className="toggle-field">
             <input
               type="checkbox"
@@ -382,8 +393,10 @@ function SettingsPage() {
           <button className="secondary-button" onClick={() => runTest("comfy")} disabled={testing === "comfy"}>
             {testing === "comfy" ? texts.common.testing : `${texts.common.test} ComfyUI`}
           </button>
+          <ConnectionTestStatus result={testResults.comfy} texts={settingsText} />
         </div>
       </section>
+      )}
 
       <div className="action-row">
         <button onClick={handleSave} disabled={saving}>
@@ -394,6 +407,16 @@ function SettingsPage() {
       {message && <div className="scan-note">{message}</div>}
       {error && <div className="error-box">{error}</div>}
     </div>
+  );
+}
+
+function ConnectionTestStatus({ result, texts }) {
+  if (!result) return null;
+
+  return (
+    <span className={result.ok ? "connection-status ok" : "connection-status failed"}>
+      {result.ok ? texts.connectionOk : texts.connectionFailed}: {result.message}
+    </span>
   );
 }
 

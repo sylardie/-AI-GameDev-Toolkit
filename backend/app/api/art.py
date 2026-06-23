@@ -60,7 +60,10 @@ def art_pipeline_status():
 
 @router.post("/generate", response_model=ArtPromptGenerateResponse)
 def generate_art_pipeline_prompt(request: ArtPromptGenerateRequest):
-    return generate_art_prompt(request)
+    try:
+        return generate_art_prompt(request)
+    except LLMError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/comfyui/submit", response_model=ComfyUISubmitResponse)
@@ -73,7 +76,14 @@ def submit_art_pipeline_to_comfyui(request: ArtPromptGenerateRequest):
             message="ComfyUI is disabled.",
         )
 
-    art_result = generate_art_prompt(request)
+    try:
+        art_result = generate_art_prompt(request)
+    except LLMError as exc:
+        return ComfyUISubmitResponse(
+            enabled=True,
+            submitted=False,
+            message=str(exc),
+        )
     workflow = build_basic_txt2img_workflow(
         request,
         art_result.positive_prompt,

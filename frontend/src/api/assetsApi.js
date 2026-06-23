@@ -5,6 +5,7 @@ export async function generateSpritesheet(payload) {
   formData.append("video", payload.video);
   formData.append("fps", String(payload.fps));
   formData.append("max_frames", String(payload.maxFrames));
+  formData.append("target_frame_count", String(payload.targetFrameCount ?? payload.maxFrames));
   formData.append("columns", String(payload.columns));
   formData.append("frame_width", String(payload.frameWidth));
   formData.append("frame_height", String(payload.frameHeight));

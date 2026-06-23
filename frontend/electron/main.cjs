@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const path = require("node:path");
@@ -8,6 +8,7 @@ const ROOT_DIR = path.resolve(FRONTEND_DIR, "..");
 const BACKEND_DIR = path.join(ROOT_DIR, "backend");
 const PYTHON_EXE = path.join(BACKEND_DIR, ".venv", "Scripts", "python.exe");
 const HEALTH_URL = "http://127.0.0.1:8010/api/health";
+const REQUIRED_ASSET_SAMPLING_VERSION = 2;
 const RENDERER_URL = process.env.ELECTRON_RENDERER_URL || "http://127.0.0.1:5173";
 
 let mainWindow = null;
@@ -34,8 +35,19 @@ async function createWindow() {
 }
 
 async function ensureBackend() {
-  if (await isBackendHealthy()) {
+  const health = await getBackendHealth();
+  if (health.healthy && health.compatible) {
     return;
+  }
+  if (health.healthy && !health.compatible) {
+    throw new Error(
+      [
+        "A stale backend is already running on http://127.0.0.1:8010.",
+        "",
+        "Please stop the existing backend process and start the Electron dev shell again.",
+        "The current Asset Tools frame sampling requires a newer backend.",
+      ].join("\n"),
+    );
   }
 
   if (!require("node:fs").existsSync(PYTHON_EXE)) {
@@ -67,18 +79,34 @@ async function ensureBackend() {
   await waitForBackend();
 }
 
-function isBackendHealthy() {
+function getBackendHealth() {
   return new Promise((resolve) => {
     const request = http.get(HEALTH_URL, { timeout: 1500 }, (response) => {
-      response.resume();
-      resolve(response.statusCode >= 200 && response.statusCode < 300);
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        body += chunk;
+      });
+      response.on("end", () => {
+        const healthy = response.statusCode >= 200 && response.statusCode < 300;
+        let payload = {};
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          payload = {};
+        }
+        resolve({
+          healthy,
+          compatible: healthy && payload.asset_sampling_version >= REQUIRED_ASSET_SAMPLING_VERSION,
+        });
+      });
     });
 
     request.on("timeout", () => {
       request.destroy();
-      resolve(false);
+      resolve({ healthy: false, compatible: false });
     });
-    request.on("error", () => resolve(false));
+    request.on("error", () => resolve({ healthy: false, compatible: false }));
   });
 }
 
@@ -87,7 +115,8 @@ async function waitForBackend() {
   const timeoutMs = 30000;
 
   while (Date.now() - startedAt < timeoutMs) {
-    if (await isBackendHealthy()) {
+    const health = await getBackendHealth();
+    if (health.healthy && health.compatible) {
       return;
     }
     await delay(500);
@@ -111,6 +140,31 @@ function stopBackendIfOwned() {
 }
 
 app.whenReady().then(async () => {
+  ipcMain.handle("dialog:choose-folder", async (_event, options = {}) => {
+    const dialogOptions = {
+      title: options.title || "Choose Folder",
+      properties: ["openDirectory"],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle("shell:show-item-in-folder", async (_event, filePath) => {
+    if (!filePath || typeof filePath !== "string") {
+      return false;
+    }
+
+    shell.showItemInFolder(filePath);
+    return true;
+  });
+
   try {
     await ensureBackend();
     await createWindow();

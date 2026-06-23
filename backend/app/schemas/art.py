@@ -48,8 +48,12 @@ class ArtPromptGenerateResponse(BaseModel):
     asset_type: AssetType
     style: ArtStyle
     engine_target: EngineTarget
+    content_prompt: str = ""
+    style_spec_prompt: str = ""
     positive_prompt: str
     negative_prompt: str
+    palette: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
     style_tags: List[str]
     asset_naming_rules: List[AssetNamingRule]
     import_guide: List[ImportGuideStep]
@@ -103,6 +107,7 @@ class ComfyUIImageGenerateResponse(BaseModel):
 
 
 class ArtImageAnalysis(BaseModel):
+    title: str = ""
     content_prompt: str
     style_spec_prompt: str
     negative_prompt: str

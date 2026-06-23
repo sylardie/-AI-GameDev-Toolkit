@@ -1,10 +1,16 @@
+import json
+
+from pydantic import ValidationError
+
 from app.schemas.art import (
+    ArtImageAnalysis,
     ArtPromptGenerateRequest,
     ArtPromptGenerateResponse,
     AssetNamingRule,
     ImportGuideStep,
 )
 from app.modules.art_pipeline.comfyui_workflow import build_basic_txt2img_workflow
+from app.modules.shared.llm_client import LLMError, chat_completion_json
 from app.modules.shared.settings_store import load_settings
 
 
@@ -43,10 +49,17 @@ NEGATIVE_BASE = [
 
 def generate_art_prompt(request: ArtPromptGenerateRequest) -> ArtPromptGenerateResponse:
     settings = load_settings()
-    style_tags = STYLE_TAGS[request.style]
+    if not settings.llm.enabled:
+        raise LLMError("LLM is disabled. Configure a local or OpenAI-compatible LLM first.")
+    if not settings.llm.api_base_url or not settings.llm.api_key or not settings.llm.model:
+        raise LLMError("LLM settings are incomplete.")
+
+    analysis = _generate_english_style_prompt(request, settings.llm)
+    style_tags = analysis.palette or STYLE_TAGS[request.style]
     title = _build_title(request)
-    positive_prompt = _build_positive_prompt(request, style_tags)
-    negative_prompt = ", ".join(_negative_prompt_terms(request))
+    title = analysis.title.strip() or _title_from_prompt(analysis.content_prompt, title)
+    positive_prompt = _combine_prompts(analysis.content_prompt, analysis.style_spec_prompt)
+    negative_prompt = analysis.negative_prompt or ", ".join(_negative_prompt_terms(request))
     comfyui_workflow = build_basic_txt2img_workflow(
         request,
         positive_prompt,
@@ -59,8 +72,12 @@ def generate_art_prompt(request: ArtPromptGenerateRequest) -> ArtPromptGenerateR
         asset_type=request.asset_type,
         style=request.style,
         engine_target=request.engine_target,
+        content_prompt=analysis.content_prompt,
+        style_spec_prompt=analysis.style_spec_prompt,
         positive_prompt=positive_prompt,
         negative_prompt=negative_prompt,
+        palette=analysis.palette,
+        notes=analysis.notes,
         style_tags=style_tags,
         asset_naming_rules=_naming_rules(request),
         import_guide=_import_guide(request),
@@ -68,6 +85,64 @@ def generate_art_prompt(request: ArtPromptGenerateRequest) -> ArtPromptGenerateR
         comfyui_workflow=comfyui_workflow,
         comfyui_enabled=settings.comfyui.enabled,
     )
+
+
+def _generate_english_style_prompt(request: ArtPromptGenerateRequest, llm_settings) -> ArtImageAnalysis:
+    raw_content = chat_completion_json(
+        _build_llm_system_prompt(),
+        _build_llm_user_prompt(request),
+        settings=llm_settings,
+    )
+
+    try:
+        data = json.loads(raw_content)
+    except json.JSONDecodeError as exc:
+        raise LLMError(f"Art style LLM returned invalid JSON: {raw_content}") from exc
+
+    try:
+        return ArtImageAnalysis(**data)
+    except ValidationError as exc:
+        raise LLMError(f"Art style LLM JSON does not match the expected schema: {exc}") from exc
+
+
+def _build_llm_system_prompt() -> str:
+    return """
+You are a senior game art director for Unity and Godot asset production.
+Turn any user language into concise English image-generation prompts.
+Return JSON only.
+Separate the concrete subject/content from the reusable style specification.
+The style specification should be reusable across future assets to keep visual consistency.
+Do not include import instructions, naming rules, workflow payloads, markdown, or prose outside JSON.
+""".strip()
+
+
+def _build_llm_user_prompt(request: ArtPromptGenerateRequest) -> str:
+    return f"""
+Create an English prompt package for a game art asset.
+
+User asset description:
+{request.description.strip()}
+
+Asset type: {request.asset_type}
+Target visual style: {request.style}
+Engine target: {request.engine_target}
+Mood: {request.mood.strip() or "not specified"}
+Color palette: {request.color_palette.strip() or "not specified"}
+
+Return exactly this JSON shape:
+{{
+  "content_prompt": "English prompt describing only the specific asset/content requested",
+  "title": "short English title for this style prompt package",
+  "style_spec_prompt": "English reusable style specification for consistent future assets",
+  "negative_prompt": "English comma-separated things to avoid",
+  "palette": ["short English color names or #RRGGBB values"],
+  "camera_view": "short English view/projection guidance",
+  "resolution_advice": "short English export/transparency guidance",
+  "naming_advice": "",
+  "suitable_asset_types": ["{request.asset_type}"],
+  "notes": ["short English production note"]
+}}
+""".strip()
 
 
 def _build_title(request: ArtPromptGenerateRequest) -> str:
@@ -96,6 +171,22 @@ def _build_positive_prompt(request: ArtPromptGenerateRequest, style_tags: list[s
     ])
 
     return ", ".join(parts)
+
+
+def _combine_prompts(content_prompt: str, style_spec_prompt: str) -> str:
+    parts = [content_prompt.strip(), style_spec_prompt.strip()]
+    return "\n\n".join(part for part in parts if part)
+
+
+def _title_from_prompt(content_prompt: str, fallback: str) -> str:
+    words = [
+        word.strip(" ,.;:!?()[]{}\"'")
+        for word in content_prompt.strip().split()
+        if word.strip(" ,.;:!?()[]{}\"'")
+    ]
+    if not words:
+        return fallback
+    return " ".join(words[:8]).title()
 
 
 def _negative_prompt_terms(request: ArtPromptGenerateRequest) -> list[str]:

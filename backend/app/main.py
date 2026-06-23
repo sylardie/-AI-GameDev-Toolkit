@@ -38,6 +38,7 @@ def health_check():
         "name": "AI GameDev Toolkit",
         "version": "0.1.0",
         "status": "running",
+        "asset_sampling_version": 2,
     }
 
 
