@@ -29,6 +29,7 @@ def load_settings() -> LocalSettings:
     if isinstance(image_provider, dict) and image_provider.get("provider") not in {
         "none",
         "openai",
+        "gemini",
         "custom",
     }:
         image_provider["provider"] = "custom"

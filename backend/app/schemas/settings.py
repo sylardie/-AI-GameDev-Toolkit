@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 LLMProvider = Literal["openai", "deepseek", "qwen", "custom"]
-ImageProvider = Literal["none", "openai", "custom"]
+ImageProvider = Literal["none", "openai", "gemini", "custom"]
 
 
 class LLMSettings(BaseModel):

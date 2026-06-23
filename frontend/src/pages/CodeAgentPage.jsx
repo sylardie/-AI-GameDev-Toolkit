@@ -7,6 +7,7 @@ import {
   scanProject,
   searchProject,
 } from "../api/codeApi";
+import RuntimeNotice from "../components/RuntimeNotice";
 import { useI18n } from "../i18n/I18nContext";
 
 function CodeAgentPage() {
@@ -157,7 +158,13 @@ function CodeAgentPage() {
       </div>
 
       <section className="panel">
-        <h2>{codeText.scanTitle}</h2>
+        <div className="section-header-row">
+          <h2>{codeText.scanTitle}</h2>
+          <span className="runtime-badge">Local-only</span>
+        </div>
+        <RuntimeNotice title="Local Unity / Godot project scan" badge="Local-only">
+          The backend can only scan project paths available on the same PC. A cloud version should use project ZIP upload, Git repository import, or a local companion agent.
+        </RuntimeNotice>
         <label className="form-field">
           <span>{codeText.pathLabel}</span>
           <input

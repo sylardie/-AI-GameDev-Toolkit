@@ -38,6 +38,18 @@ export async function submitComfyPrompt(payload) {
   return response.json();
 }
 
+export async function generateComfyImage(payload) {
+  const response = await fetch(`${API_BASE_URL}/api/art/comfyui/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse(response);
+}
+
 export async function generateArtImage(payload) {
   const response = await fetch(`${API_BASE_URL}/api/art/images/generate`, {
     method: "POST",

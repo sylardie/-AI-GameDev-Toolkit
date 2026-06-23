@@ -7,6 +7,7 @@ import {
   testImageProviderConnection,
   testLlmConnection,
 } from "../api/settingsApi";
+import RuntimeNotice from "../components/RuntimeNotice";
 import { useI18n } from "../i18n/I18nContext";
 
 const emptySettings = {
@@ -37,6 +38,25 @@ const emptySettings = {
     api_key: "",
     keep_existing_api_key: true,
     timeout: 60,
+  },
+};
+
+const IMAGE_PROVIDER_PRESETS = {
+  none: {
+    api_base_url: "",
+    model: "",
+  },
+  openai: {
+    api_base_url: "https://api.openai.com",
+    model: "gpt-image-1",
+  },
+  gemini: {
+    api_base_url: "https://generativelanguage.googleapis.com",
+    model: "gemini-3.1-flash-image",
+  },
+  custom: {
+    api_base_url: "",
+    model: "",
   },
 };
 
@@ -165,6 +185,9 @@ function SettingsPage() {
       image_provider: {
         ...current.image_provider,
         [key]: value,
+        ...(key === "provider" && IMAGE_PROVIDER_PRESETS[value]
+          ? IMAGE_PROVIDER_PRESETS[value]
+          : {}),
         ...(key === "api_key" ? { keep_existing_api_key: value.length === 0 } : {}),
       },
     }));
@@ -183,6 +206,26 @@ function SettingsPage() {
           <p>{settingsText.intro}</p>
         </div>
       </div>
+
+      <section className="panel">
+        <h2>Runtime</h2>
+        <RuntimeNotice
+          title="Local deployment mode"
+          badge="Local mode"
+          items={[
+            {
+              label: "Local backend",
+              detail: "Paths, generated outputs, uploaded media, and ComfyUI requests are handled by the FastAPI process on this PC.",
+            },
+            {
+              label: "Future cloud mode",
+              detail: "Hosted deployments should use uploads, repository connections, isolated storage, and remote generation workers.",
+            },
+          ]}
+        >
+          This setup is intended for a local PC app or local web app. Online deployments cannot read a user's local disk paths directly.
+        </RuntimeNotice>
+      </section>
 
       <section className="panel">
         <div className="section-header-row">
@@ -262,6 +305,7 @@ function SettingsPage() {
             >
               <option value="none">None</option>
               <option value="openai">OpenAI Images</option>
+              <option value="gemini">Gemini / Gemma</option>
               <option value="custom">Custom</option>
             </select>
           </label>
@@ -307,7 +351,10 @@ function SettingsPage() {
 
       <section className="panel">
         <div className="section-header-row">
-          <h2>{settingsText.comfyTitle}</h2>
+          <div>
+            <h2>{settingsText.comfyTitle}</h2>
+            <p>Local-only integration. Use a local endpoint such as http://127.0.0.1:8188; a cloud version should call a remote ComfyUI worker instead.</p>
+          </div>
           <label className="toggle-field">
             <input
               type="checkbox"

@@ -1,4 +1,5 @@
 import { useI18n } from "../i18n/I18nContext";
+import RuntimeNotice from "../components/RuntimeNotice";
 
 function Dashboard() {
   const { texts } = useI18n();
@@ -18,6 +19,26 @@ function Dashboard() {
         {dashboard.modules.map((module) => (
           <ModuleCard key={module.title} {...module} />
         ))}
+      </section>
+
+      <section className="panel">
+        <h2>Runtime Mode</h2>
+        <RuntimeNotice
+          title="Local-first desktop workflow"
+          badge="Local mode"
+          items={[
+            {
+              label: "Local-only",
+              detail: "Config Manager scans local Excel folders, Code Agent scans local Unity / Godot paths, and ComfyUI connects to a service on this machine.",
+            },
+            {
+              label: "Cloud alternative",
+              detail: "A hosted version should use uploaded Excel/project ZIP files, Git repository connections, or a remote ComfyUI worker instead of local paths.",
+            },
+          ]}
+        >
+          This toolkit is currently optimized for local deployment, where the browser UI and FastAPI backend run on the same PC as the game project files.
+        </RuntimeNotice>
       </section>
 
       <section className="panel">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { openConfigWorkbook, scanConfigFolder } from "../api/configsApi";
+import RuntimeNotice from "../components/RuntimeNotice";
 import { useI18n } from "../i18n/I18nContext";
 
 const SAVED_CONFIG_PATHS_KEY = "ai-gamedev-config-manager-paths";
@@ -216,7 +217,13 @@ function ConfigManagerPage() {
       </div>
 
       <section className="panel">
-        <h2>{configText.scanTitle}</h2>
+        <div className="section-header-row">
+          <h2>{configText.scanTitle}</h2>
+          <span className="runtime-badge">Local-only</span>
+        </div>
+        <RuntimeNotice title="Local Excel folder scan" badge="Local-only">
+          The backend reads this path from the same machine running the app. A cloud version should replace this with Excel file upload or ZIP upload.
+        </RuntimeNotice>
         <div className="search-row config-path-row">
           <label className="form-field">
             <span>{configText.pathLabel}</span>

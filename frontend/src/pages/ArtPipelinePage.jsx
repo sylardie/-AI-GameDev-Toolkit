@@ -5,10 +5,12 @@ import {
   createStyleProfile,
   deleteStyleProfile,
   generateArtImage,
+  generateComfyImage,
   generateArtPrompt,
   getStyleProfiles,
   submitComfyPrompt,
 } from "../api/artApi";
+import RuntimeNotice from "../components/RuntimeNotice";
 import { downloadFile } from "../api/fileApi";
 import { useI18n } from "../i18n/I18nContext";
 
@@ -42,6 +44,9 @@ function ArtPipelinePage() {
   const [imageResult, setImageResult] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
+  const [comfyImageResult, setComfyImageResult] = useState(null);
+  const [comfyImageLoading, setComfyImageLoading] = useState(false);
+  const [comfyImageError, setComfyImageError] = useState("");
 
   const [analysisFile, setAnalysisFile] = useState(null);
   const [analysisPreview, setAnalysisPreview] = useState("");
@@ -134,6 +139,8 @@ function ArtPipelinePage() {
     setImageLoading(true);
     setImageError("");
     setImageResult(null);
+    setComfyImageError("");
+    setComfyImageResult(null);
 
     try {
       setImageResult(
@@ -149,6 +156,35 @@ function ArtPipelinePage() {
       setImageError(err.message || artText.errors.imageGenerate);
     } finally {
       setImageLoading(false);
+    }
+  }
+
+  async function handleComfyImageGenerate() {
+    if (!imagePrompt.trim()) {
+      setComfyImageError(artText.errors.emptyImagePrompt);
+      return;
+    }
+
+    setComfyImageLoading(true);
+    setComfyImageError("");
+    setComfyImageResult(null);
+    setImageError("");
+    setImageResult(null);
+
+    try {
+      setComfyImageResult(
+        await generateComfyImage({
+          prompt: imagePrompt.trim(),
+          negative_prompt: negativePrompt.trim(),
+          size: imageSize,
+          count: Number(imageCount),
+          seed: -1,
+        }),
+      );
+    } catch (err) {
+      setComfyImageError(err.message || artText.errors.comfySubmit);
+    } finally {
+      setComfyImageLoading(false);
     }
   }
 
@@ -280,6 +316,9 @@ function ArtPipelinePage() {
 
       <section className="panel">
         <h2>{artText.imageGenerationTitle}</h2>
+        <RuntimeNotice title="ComfyUI runs locally" badge="Local-only">
+          Generate with ComfyUI requires a ComfyUI service reachable from this PC, usually http://127.0.0.1:8188. A cloud version should use a hosted worker or remote ComfyUI endpoint.
+        </RuntimeNotice>
         <div className="art-form-grid">
           <label className="form-field span-2">
             <span>{artText.imagePrompt}</span>
@@ -315,9 +354,14 @@ function ArtPipelinePage() {
           <button onClick={handleImageGenerate} disabled={imageLoading}>
             {imageLoading ? texts.common.generating : artText.generateImage}
           </button>
+          <button className="secondary-button" onClick={handleComfyImageGenerate} disabled={comfyImageLoading}>
+            {comfyImageLoading ? texts.common.generating : artText.generateComfyImage || "Generate with ComfyUI"}
+          </button>
         </div>
         {imageError && <div className="error-box">{imageError}</div>}
+        {comfyImageError && <div className="error-box">{comfyImageError}</div>}
         {imageResult && <GeneratedImages result={imageResult} />}
+        {comfyImageResult && <GeneratedImages result={comfyImageResult} />}
       </section>
 
       <section className="panel">

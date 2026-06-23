@@ -65,6 +65,14 @@ class ComfyUISubmitResponse(BaseModel):
     message: str
 
 
+class ComfyUIImageGenerateRequest(BaseModel):
+    prompt: str = Field(..., min_length=3, max_length=2000)
+    negative_prompt: str = Field(default="", max_length=1200)
+    size: Literal["512x512", "768x768", "1024x1024", "1024x1536", "1536x1024"] = "1024x1024"
+    count: int = Field(default=1, ge=1, le=4)
+    seed: int = Field(default=-1, ge=-1)
+
+
 class ArtImageGenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=3, max_length=2000)
     negative_prompt: str = Field(default="", max_length=1200)
@@ -83,6 +91,13 @@ class ArtImageGenerateResponse(BaseModel):
     output_id: str
     provider: str
     model: str
+    images: List[GeneratedImageItem]
+    message: str
+
+
+class ComfyUIImageGenerateResponse(BaseModel):
+    output_id: str
+    prompt_id: str
     images: List[GeneratedImageItem]
     message: str
 

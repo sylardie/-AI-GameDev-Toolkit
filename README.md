@@ -52,6 +52,30 @@ cd frontend
 npm.cmd run dev
 ```
 
+## Electron Desktop Dev
+
+The first desktop pass is a development shell around the existing local web app. It does not package Python or create a Windows installer yet.
+
+Requirements:
+
+* `backend\.venv\Scripts\python.exe` exists and has `backend\requirements.txt` installed.
+* Frontend dependencies are installed with `npm.cmd install`.
+
+Start the desktop shell:
+
+```bat
+cd frontend
+npm.cmd run electron:dev
+```
+
+Electron will:
+
+* Start the Vite frontend at `http://127.0.0.1:5173`.
+* Reuse an existing healthy backend at `http://127.0.0.1:8010`, or start `backend\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8010`.
+* Stop only the backend process it started when the desktop window exits.
+
+The browser workflow still works through `scripts\start-dev.cmd` or the manual backend/frontend commands above.
+
 ## Main Pages
 
 ```text
@@ -71,7 +95,9 @@ Backend docs:     http://127.0.0.1:8010/docs
 Settings supports local configuration for:
 
 * OpenAI-compatible LLM providers such as OpenAI, DeepSeek, Qwen, or a custom endpoint.
-* OpenAI-compatible online image provider settings for Art Pipeline image generation.
+* Online image provider settings for Art Pipeline image generation:
+  * OpenAI-compatible providers such as OpenAI Images or a custom endpoint.
+  * Google Gemini / Gemma entry backed by the Gemini image-generation API.
 * ComfyUI running locally or on a reachable endpoint.
 
 Config generation requires a configured LLM. ComfyUI remains optional; when it is disabled, Art Pipeline still produces local prompts and workflow payload previews. Online image generation is optional and uses the configured OpenAI-compatible Image Provider when enabled.
@@ -82,7 +108,7 @@ Free / low-cost multimodal API notes:
 * Hugging Face Inference Providers include small monthly free credits across LLM, vision-language, and image generation tasks. It is useful for experiments, but not a stable default backend for production-sized use: https://huggingface.co/docs/inference-providers/pricing and https://huggingface.co/docs/inference-providers/index
 * Pollinations is an open generation platform with text / image / audio / video endpoints, but it has moved toward credits / API key usage, so treat it as an optional experimental provider rather than a guaranteed long-term free backend: https://github.com/pollinations/pollinations
 
-The recommended direction is to keep OpenAI-compatible custom endpoints for image generation, then add concrete Gemini / Hugging Face providers only when the surrounding workflow is stable.
+The recommended direction is to keep OpenAI-compatible custom endpoints for image generation while adding concrete providers only when the surrounding workflow is stable. Gemini / Gemma is currently supported through the Google Gemini image-generation API; Gemma itself is not treated as a standalone image-generation API.
 
 ## Current Development Principle
 

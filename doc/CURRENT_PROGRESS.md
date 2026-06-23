@@ -929,3 +929,27 @@ Verification:
 * Smoke tested Excel package export and confirmed `tables/` contains both per-table `.json` and `.xlsx`.
 * Smoke tested Audio Tools processing with a generated short audio file and confirmed processed OGG, metadata JSON, and ZIP outputs exist.
 * Confirmed running OpenAPI includes `/api/audio/process`.
+
+## Current Phase Update: Gemini / Gemma Image Provider
+
+Implemented:
+
+* Added `gemini` as an Image Provider setting option.
+* Settings page now shows `Gemini / Gemma` under Image Provider.
+* Selecting Gemini / Gemma fills practical defaults:
+
+  * Base URL: `https://generativelanguage.googleapis.com`
+  * Model: `gemini-3.1-flash-image`
+
+* Backend image generation now supports a Gemini-specific request path using the Google Gemini image-generation API.
+* OpenAI-compatible image Provider behavior remains unchanged for OpenAI and Custom.
+* Gemini connection testing uses the Gemini models endpoint with the configured API key.
+* Documentation clarifies that the UI label supports the user's Gemma wording, while the actual image-generation API is Gemini.
+
+Verification:
+
+* `python -m compileall app` passes.
+* `npm.cmd run build` passes.
+* Smoke tested `gemini` Image Provider schema acceptance.
+* Smoke tested Gemini image-response base64 extraction locally.
+* Real Gemini image generation requires a user-provided Google API key and network access.

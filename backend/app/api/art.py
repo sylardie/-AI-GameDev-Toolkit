@@ -13,8 +13,18 @@ from app.modules.art_pipeline.style_profile_store import (
     get_style_profile,
     list_style_profiles,
 )
-from app.modules.art_pipeline.comfyui_client import ComfyUIError, submit_workflow
-from app.modules.art_pipeline.comfyui_workflow import build_basic_txt2img_workflow
+from app.modules.art_pipeline.comfyui_client import (
+    ComfyUIError,
+    collect_history_images,
+    download_history_images,
+    submit_workflow,
+    wait_for_history,
+)
+from app.modules.art_pipeline.comfyui_workflow import (
+    ComfyUIWorkflowError,
+    build_basic_txt2img_workflow,
+    build_template_txt2img_workflow,
+)
 from app.modules.art_pipeline.prompt_generator import generate_art_prompt
 from app.modules.shared.llm_client import LLMError
 from app.modules.shared.settings_store import load_settings
@@ -27,7 +37,10 @@ from app.schemas.art import (
     ArtStyleProfile,
     ArtStyleProfileCreate,
     ArtStyleProfileListResponse,
+    ComfyUIImageGenerateRequest,
+    ComfyUIImageGenerateResponse,
     ComfyUISubmitResponse,
+    GeneratedImageItem,
 )
 
 router = APIRouter(prefix="/api/art", tags=["Art Pipeline"])
@@ -82,6 +95,53 @@ def submit_art_pipeline_to_comfyui(request: ArtPromptGenerateRequest):
         submitted=True,
         prompt_id=prompt_id,
         message="ComfyUI prompt submitted.",
+    )
+
+
+@router.post("/comfyui/generate", response_model=ComfyUIImageGenerateResponse)
+def generate_art_image_with_comfyui(request: ComfyUIImageGenerateRequest):
+    settings = load_settings()
+    if not settings.comfyui.enabled:
+        raise HTTPException(status_code=400, detail="ComfyUI is disabled.")
+
+    width, height = _parse_image_size(request.size)
+    output_id = f"comfyui_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
+    output_dir = OUTPUTS_DIR / "art" / output_id
+
+    try:
+        workflow = build_template_txt2img_workflow(
+            positive_prompt=request.prompt,
+            negative_prompt=request.negative_prompt,
+            width=width,
+            height=height,
+            seed=request.seed,
+            batch_size=request.count,
+        )
+        prompt_id = submit_workflow(settings.comfyui, workflow)
+        history = wait_for_history(settings.comfyui, prompt_id)
+        comfy_images = collect_history_images(history)
+        if not comfy_images:
+            raise ComfyUIError("ComfyUI history did not contain generated images.")
+        downloaded = download_history_images(settings.comfyui, comfy_images, output_dir)
+    except ComfyUIWorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ComfyUIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    images = [
+        GeneratedImageItem(
+            path=f"outputs/art/{output_id}/{path.name}",
+            file_name=path.name,
+            prompt=request.prompt,
+        )
+        for path in downloaded
+    ]
+
+    return ComfyUIImageGenerateResponse(
+        output_id=output_id,
+        prompt_id=prompt_id,
+        images=images,
+        message="ComfyUI image generation completed.",
     )
 
 
@@ -155,3 +215,8 @@ def remove_art_style_profile(profile_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Style profile not found.")
     return {"deleted": True}
+
+
+def _parse_image_size(size: str) -> tuple[int, int]:
+    width_text, height_text = size.lower().split("x", 1)
+    return int(width_text), int(height_text)

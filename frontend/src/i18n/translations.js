@@ -435,7 +435,7 @@ export const translations = {
       comfyTitle: "ComfyUI",
       imageProviderTitle: "Image Provider",
       imageProviderHint:
-        "Used by Art Pipeline image generation. The first version supports OpenAI-compatible image APIs. API keys are saved only in backend local settings.",
+        "Used by Art Pipeline image generation. Supports OpenAI-compatible providers and Gemini / Gemma through the Google Gemini image API. API keys are saved only in backend local settings.",
       enabled: "Enabled",
       provider: "Provider",
       baseUrl: "Base URL",
@@ -883,7 +883,7 @@ export const translations = {
       llmTitle: "大模型 Provider",
       comfyTitle: "ComfyUI",
       imageProviderTitle: "图片生成 Provider",
-      imageProviderHint: "用于美术管线的线上图片生成 API。第一版支持 OpenAI-compatible 接口，密钥只保存在本地后端设置中。",
+      imageProviderHint: "用于美术管线的线上图片生成 API。支持 OpenAI-compatible Provider，也支持通过 Google Gemini 图片 API 使用 Gemini / Gemma。密钥只保存在本地后端设置中。",
       enabled: "启用",
       provider: "Provider",
       baseUrl: "Base URL",
