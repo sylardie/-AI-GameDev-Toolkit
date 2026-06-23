@@ -63,3 +63,64 @@ class ComfyUISubmitResponse(BaseModel):
     submitted: bool
     prompt_id: Optional[str] = None
     message: str
+
+
+class ArtImageGenerateRequest(BaseModel):
+    prompt: str = Field(..., min_length=3, max_length=2000)
+    negative_prompt: str = Field(default="", max_length=1200)
+    style_profile_id: str = Field(default="", max_length=120)
+    size: Literal["1024x1024", "1024x1536", "1536x1024"] = "1024x1024"
+    count: int = Field(default=1, ge=1, le=4)
+
+
+class GeneratedImageItem(BaseModel):
+    path: str
+    file_name: str
+    prompt: str
+
+
+class ArtImageGenerateResponse(BaseModel):
+    output_id: str
+    provider: str
+    model: str
+    images: List[GeneratedImageItem]
+    message: str
+
+
+class ArtImageAnalysis(BaseModel):
+    content_prompt: str
+    style_spec_prompt: str
+    negative_prompt: str
+    palette: List[str] = Field(default_factory=list)
+    camera_view: str = ""
+    resolution_advice: str = ""
+    naming_advice: str = ""
+    suitable_asset_types: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class ArtImageAnalyzeResponse(BaseModel):
+    analysis: ArtImageAnalysis
+
+
+class ArtStyleProfileCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    content_prompt: str = Field(default="", max_length=2000)
+    style_spec_prompt: str = Field(default="", max_length=2000)
+    negative_prompt: str = Field(default="", max_length=1200)
+    palette: List[str] = Field(default_factory=list)
+    camera_view: str = ""
+    resolution_advice: str = ""
+    naming_advice: str = ""
+    suitable_asset_types: List[str] = Field(default_factory=list)
+    source_image_path: str = ""
+
+
+class ArtStyleProfile(ArtStyleProfileCreate):
+    id: str
+    created_at: str
+    updated_at: str
+
+
+class ArtStyleProfileListResponse(BaseModel):
+    profiles: List[ArtStyleProfile] = Field(default_factory=list)

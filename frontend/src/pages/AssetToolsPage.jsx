@@ -10,12 +10,12 @@ import { downloadFile, getDownloadUrl } from "../api/fileApi";
 import { useI18n } from "../i18n/I18nContext";
 
 function AssetToolsPage() {
-  const { language, texts } = useI18n();
+  const { texts } = useI18n();
   const assetText = texts.assets;
-  const tr = (en, zh) => (language === "zh" ? zh : en);
 
   const [video, setVideo] = useState(null);
   const [videoInfo, setVideoInfo] = useState(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState("");
   const [fps, setFps] = useState(16);
   const [maxFrames, setMaxFrames] = useState(16);
   const [columns, setColumns] = useState(4);
@@ -26,8 +26,6 @@ function AssetToolsPage() {
   const [endTime, setEndTime] = useState(0);
   const [extractionMode, setExtractionMode] = useState("fps");
   const [frameInterval, setFrameInterval] = useState(2);
-  const [dedupeEnabled, setDedupeEnabled] = useState(false);
-  const [dedupeThreshold, setDedupeThreshold] = useState(96);
   const [transparentColor, setTransparentColor] = useState("#000000");
   const [transparentTolerance, setTransparentTolerance] = useState(24);
   const [transparentFeather, setTransparentFeather] = useState(16);
@@ -49,15 +47,23 @@ function AssetToolsPage() {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
 
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [videoPreviewUrl, imagePreviewUrl]);
+
+  const duration = videoInfo?.duration || 0;
   const estimatedFrames = useMemo(() => {
-    const duration = Math.max(0, (endTime || videoInfo?.duration || 0) - startTime);
-    if (!duration) return 0;
+    const rangeDuration = Math.max(0, (endTime || duration) - startTime);
+    if (!rangeDuration) return 0;
     const estimate =
       extractionMode === "fps"
-        ? Math.ceil(duration * fps)
-        : Math.ceil(duration * (videoInfo?.fps || 30) / frameInterval);
+        ? Math.ceil(rangeDuration * fps)
+        : Math.ceil((rangeDuration * (videoInfo?.fps || 30)) / frameInterval);
     return Math.min(maxFrames, Math.max(0, estimate));
-  }, [endTime, extractionMode, fps, frameInterval, maxFrames, startTime, videoInfo]);
+  }, [duration, endTime, extractionMode, fps, frameInterval, maxFrames, startTime, videoInfo]);
 
   const selectedFrameItems = useMemo(
     () => result?.frames.filter((frame) => selectedFrames.includes(frame.index)) || [],
@@ -65,8 +71,8 @@ function AssetToolsPage() {
   );
 
   const importSettings = useMemo(
-    () => (result ? buildImportSettings(result, metadataTarget, texts, tr) : null),
-    [metadataTarget, result, texts, tr],
+    () => (result ? buildImportSettings(result, metadataTarget, texts) : null),
+    [metadataTarget, result, texts],
   );
 
   function outputUrl(path) {
@@ -74,6 +80,7 @@ function AssetToolsPage() {
   }
 
   function handleVideoChange(file) {
+    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
     setVideo(file);
     setResult(null);
     setSelectedFrames([]);
@@ -82,10 +89,14 @@ function AssetToolsPage() {
 
     if (!file) {
       setVideoInfo(null);
+      setVideoPreviewUrl("");
+      setStartTime(0);
+      setEndTime(0);
       return;
     }
 
     const url = URL.createObjectURL(file);
+    setVideoPreviewUrl(url);
     const element = document.createElement("video");
     element.preload = "metadata";
     element.src = url;
@@ -93,20 +104,17 @@ function AssetToolsPage() {
       const width = element.videoWidth || 128;
       const height = element.videoHeight || 128;
       const size = fitWithinLimit(width, height, 2048);
-      const duration = element.duration || 0;
-      setVideoInfo({ name: file.name, width, height, duration, fps: 30 });
+      const loadedDuration = Number((element.duration || 0).toFixed(2));
+      setVideoInfo({ name: file.name, width, height, duration: loadedDuration, fps: 30 });
       setFrameWidth(size.width);
       setFrameHeight(size.height);
-      setEndTime(Number(duration.toFixed(2)));
-      URL.revokeObjectURL(url);
+      setStartTime(0);
+      setEndTime(loadedDuration);
     };
   }
 
   function handleImageChange(file) {
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-    }
-
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImageFile(file);
     setImageResult(null);
     setImageError("");
@@ -138,8 +146,8 @@ function AssetToolsPage() {
         endTime,
         extractionMode,
         frameInterval,
-        dedupeEnabled,
-        dedupeThreshold,
+        dedupeEnabled: false,
+        dedupeThreshold: 96,
       });
       setResult(data);
       setSelectedFrames(data.frames.map((frame) => frame.index));
@@ -211,7 +219,7 @@ function AssetToolsPage() {
 
   async function handleRemoveImageBackground() {
     if (!imageFile) {
-      setImageError(tr("Please choose an image first.", "请先选择图片。"));
+      setImageError(assetText.errors.noImage);
       return;
     }
 
@@ -227,8 +235,9 @@ function AssetToolsPage() {
         transparentFeather: imageFeather,
       });
       setImageResult(data);
+      setCacheBust(Date.now());
     } catch (err) {
-      setImageError(err.message || tr("Unable to remove image background.", "无法去除图片背景。"));
+      setImageError(err.message || assetText.errors.imageBackground);
     } finally {
       setImageLoading(false);
     }
@@ -236,9 +245,8 @@ function AssetToolsPage() {
 
   async function copyImportSettings() {
     if (!importSettings) return;
-
     await navigator.clipboard.writeText(importSettings.copyText);
-    setCopyMessage(tr("Import settings copied.", "导入参数已复制。"));
+    setCopyMessage(assetText.importCopied);
   }
 
   function toggleFrame(index) {
@@ -275,39 +283,58 @@ function AssetToolsPage() {
       <section className="panel">
         <div className="section-step">
           <span>1</span>
-          <h2>{tr("Video to Spritesheet", "视频转精灵表")}</h2>
+          <h2>{assetText.videoTitle}</h2>
         </div>
 
         <div className="settings-grid">
-          <label className="form-field span-2">
-            <span>{assetText.videoFile}</span>
-            <input type="file" accept="video/*" onChange={(event) => handleVideoChange(event.target.files?.[0] || null)} />
-          </label>
+          <DropZone
+            label={assetText.videoFile}
+            title={assetText.dropVideoTitle}
+            hint={assetText.dropVideoHint}
+            accept="video/*"
+            onFile={handleVideoChange}
+          />
 
           {videoInfo && (
             <div className="asset-info span-2">
               <strong>{videoInfo.name}</strong>
               <span>
-                {videoInfo.width}x{videoInfo.height} / {formatSeconds(videoInfo.duration)} / {tr("estimated", "预计")} {estimatedFrames} {tr("frames", "帧")}
+                {videoInfo.width}x{videoInfo.height} / {assetText.duration}: {formatSeconds(videoInfo.duration)} / {assetText.estimatedFrames}: {estimatedFrames}
               </span>
             </div>
           )}
 
-          <NumberField label={tr("Start time (s)", "开始时间（秒）")} value={startTime} onChange={setStartTime} />
-          <NumberField label={tr("End time (s)", "结束时间（秒）")} value={endTime} onChange={setEndTime} />
+          {videoPreviewUrl && (
+            <div className="video-preview-panel span-2">
+              <div className="block-header">
+                <h3>{assetText.videoPreview}</h3>
+                <span>{assetText.localPreview}</span>
+              </div>
+              <video src={videoPreviewUrl} controls preload="metadata" />
+            </div>
+          )}
+
+          <div className="time-input-panel span-2">
+            <div className="block-header">
+              <h3>{assetText.timeRange}</h3>
+              <span>{assetText.timeRangeHint}</span>
+            </div>
+            <NumberField label={assetText.startSeconds} value={startTime} onChange={setStartTime} step="0.01" />
+            <NumberField label={assetText.endSeconds} value={endTime} onChange={setEndTime} step="0.01" />
+          </div>
 
           <label className="form-field">
-            <span>{tr("Extraction mode", "抽帧方式")}</span>
+            <span>{assetText.extractionMode}</span>
             <select value={extractionMode} onChange={(event) => setExtractionMode(event.target.value)}>
-              <option value="fps">{tr("Target FPS", "目标 FPS")}</option>
-              <option value="interval">{tr("Every N source frames", "每 N 帧取 1 帧")}</option>
+              <option value="fps">{assetText.fpsMode}</option>
+              <option value="interval">{assetText.intervalMode}</option>
             </select>
           </label>
 
           {extractionMode === "fps" ? (
             <NumberField label={assetText.fps} value={fps} onChange={setFps} />
           ) : (
-            <NumberField label={tr("Frame interval", "抽帧间隔")} value={frameInterval} onChange={setFrameInterval} />
+            <NumberField label={assetText.frameInterval} value={frameInterval} onChange={setFrameInterval} />
           )}
 
           <NumberField label={assetText.maxFrames} value={maxFrames} onChange={setMaxFrames} />
@@ -323,9 +350,6 @@ function AssetToolsPage() {
               <option value="generic">{texts.common.generic}</option>
             </select>
           </label>
-
-          <ToggleField label={tr("Remove similar frames", "相似帧去重")} checked={dedupeEnabled} onChange={setDedupeEnabled} />
-          <NumberField label={tr("Similarity threshold", "相似阈值")} value={dedupeThreshold} onChange={setDedupeThreshold} />
         </div>
 
         <div className="action-row">
@@ -333,7 +357,6 @@ function AssetToolsPage() {
             {loading ? texts.common.generating : assetText.generate}
           </button>
         </div>
-
         {error && <div className="error-box">{error}</div>}
       </section>
 
@@ -341,7 +364,7 @@ function AssetToolsPage() {
         <section className="panel">
           <div className="section-step">
             <span>2</span>
-            <h2>{tr("Preview and Cleanup", "预览与整理")}</h2>
+            <h2>{assetText.previewCleanup}</h2>
           </div>
 
           <div className="scan-note">
@@ -352,38 +375,34 @@ function AssetToolsPage() {
               .replace("{width}", result.frame_width)
               .replace("{height}", result.frame_height)}
             {" / "}
-            {tr("selected", "已选")} {selectedFrames.length}
+            {assetText.selected}: {selectedFrames.length}
           </div>
 
           <div className="cleanup-panel">
             <div>
-              <h3>{tr("Transparent Background", "背景透明处理")}</h3>
-              <p>{tr("Pick the background color, then tune tolerance and edge softness before applying it to all extracted frames.", "选择背景色，再调整容差和边缘柔化，然后一键应用到全部已抽取帧。")}</p>
+              <h3>{assetText.transparentTitle}</h3>
+              <p>{assetText.transparentGuide}</p>
             </div>
-            <div className="cleanup-controls">
-              <button className="secondary-button" onClick={() => setTransparentColor("#000000")}>{tr("Black", "黑色")}</button>
-              <button className="secondary-button" onClick={() => setTransparentColor("#ffffff")}>{tr("White", "白色")}</button>
-              <input type="color" value={transparentColor} onChange={(event) => setTransparentColor(event.target.value)} />
-              <label className="form-field">
-                <span>{tr("Tolerance", "容差")}: {transparentTolerance}</span>
-                <input type="range" min="0" max="120" value={transparentTolerance} onChange={(event) => setTransparentTolerance(Number(event.target.value))} />
-              </label>
-              <label className="form-field">
-                <span>{tr("Edge softness", "边缘柔化")}: {transparentFeather}</span>
-                <input type="range" min="0" max="80" value={transparentFeather} onChange={(event) => setTransparentFeather(Number(event.target.value))} />
-              </label>
-              <button onClick={handleApplyTransparency} disabled={processingTransparency}>
-                {processingTransparency ? texts.common.generating : tr("Apply to all frames", "应用到全部帧")}
-              </button>
-            </div>
+            <TransparencyControls
+              texts={texts}
+              color={transparentColor}
+              setColor={setTransparentColor}
+              tolerance={transparentTolerance}
+              setTolerance={setTransparentTolerance}
+              feather={transparentFeather}
+              setFeather={setTransparentFeather}
+              actionLabel={assetText.applyAllFrames}
+              loading={processingTransparency}
+              onAction={handleApplyTransparency}
+            />
           </div>
 
           <div className="action-row compact">
-            <button className="secondary-button" onClick={selectAll}>{tr("Select all", "全选")}</button>
-            <button className="secondary-button" onClick={invertSelection}>{tr("Invert", "反选")}</button>
-            <button className="secondary-button" onClick={clearSelection}>{tr("Clear", "清空")}</button>
+            <button className="secondary-button" onClick={selectAll}>{assetText.selectAll}</button>
+            <button className="secondary-button" onClick={invertSelection}>{assetText.invert}</button>
+            <button className="secondary-button" onClick={clearSelection}>{texts.common.clear}</button>
             <button onClick={handleExportSelected} disabled={exporting || selectedFrames.length === 0}>
-              {exporting ? texts.common.generating : tr("Export selected", "导出选中帧")}
+              {exporting ? texts.common.generating : assetText.exportSelected}
             </button>
           </div>
 
@@ -401,13 +420,7 @@ function AssetToolsPage() {
               ))}
             </div>
 
-            <AnimationPreview
-              frames={selectedFrameItems}
-              getUrl={outputUrl}
-              label={tr("Animation Preview", "动画预览")}
-              playText={tr("Play", "播放")}
-              pauseText={tr("Pause", "暂停")}
-            />
+            <AnimationPreview frames={selectedFrameItems} getUrl={outputUrl} texts={assetText} />
           </div>
         </section>
       )}
@@ -431,20 +444,20 @@ function AssetToolsPage() {
             </div>
 
             <div className="import-settings-card">
-              <h3>{tr("Output Summary", "输出摘要")}</h3>
+              <h3>{assetText.outputSummary}</h3>
               <div className="output-summary-grid">
-                <SummaryItem label={tr("Output ID", "输出 ID")} value={result.output_id} />
-                <SummaryItem label={tr("Frames", "帧数")} value={result.frame_count} />
-                <SummaryItem label={tr("Grid", "行列")} value={`${result.columns} x ${result.rows}`} />
-                <SummaryItem label={tr("Frame size", "单帧尺寸")} value={`${result.frame_width}x${result.frame_height}`} />
-                <SummaryItem label={tr("Sheet size", "整图尺寸")} value={`${result.columns * result.frame_width}x${result.rows * result.frame_height}`} />
-                <SummaryItem label={tr("Metadata target", "元数据目标")} value={formatTarget(metadataTarget, texts)} />
+                <SummaryItem label={assetText.outputId} value={result.output_id} />
+                <SummaryItem label={assetText.frames} value={result.frame_count} />
+                <SummaryItem label={assetText.grid} value={`${result.columns} x ${result.rows}`} />
+                <SummaryItem label={assetText.frameSize} value={`${result.frame_width}x${result.frame_height}`} />
+                <SummaryItem label={assetText.sheetSize} value={`${result.columns * result.frame_width}x${result.rows * result.frame_height}`} />
+                <SummaryItem label={assetText.metadataTarget} value={formatTarget(metadataTarget, texts)} />
               </div>
 
               {importSettings && (
                 <>
                   <div className="block-header import-header">
-                    <h3>{tr("Import Settings", "导入参数")}</h3>
+                    <h3>{assetText.importSettings}</h3>
                     <button className="secondary-button" onClick={copyImportSettings}>{texts.common.copy}</button>
                   </div>
                   <div className="import-setting-list">
@@ -480,36 +493,35 @@ function AssetToolsPage() {
       <section className="panel">
         <div className="section-step">
           <span>4</span>
-          <h2>{tr("Single Image Background Removal", "单张图片去背景")}</h2>
+          <h2>{assetText.imageTitle}</h2>
         </div>
 
         <div className="settings-grid">
-          <label className="form-field span-2">
-            <span>{tr("Image file", "图片文件")}</span>
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleImageChange(event.target.files?.[0] || null)} />
-          </label>
+          <DropZone
+            label={assetText.imageFile}
+            title={assetText.dropImageTitle}
+            hint={assetText.dropImageHint}
+            accept="image/png,image/jpeg,image/webp"
+            onFile={handleImageChange}
+          />
 
           <div className="cleanup-panel span-2">
             <div>
-              <h3>{tr("Background Color", "背景颜色")}</h3>
-              <p>{tr("Choose the color to make transparent. Increase edge softness when you see leftover color around the subject.", "选择要变透明的背景色。如果主体边缘还有残色，就适当增加边缘柔化。")}</p>
+              <h3>{assetText.backgroundColor}</h3>
+              <p>{assetText.transparentGuide}</p>
             </div>
-            <div className="cleanup-controls">
-              <button className="secondary-button" onClick={() => setImageColor("#000000")}>{tr("Black", "黑色")}</button>
-              <button className="secondary-button" onClick={() => setImageColor("#ffffff")}>{tr("White", "白色")}</button>
-              <input type="color" value={imageColor} onChange={(event) => setImageColor(event.target.value)} />
-              <label className="form-field">
-                <span>{tr("Tolerance", "容差")}: {imageTolerance}</span>
-                <input type="range" min="0" max="120" value={imageTolerance} onChange={(event) => setImageTolerance(Number(event.target.value))} />
-              </label>
-              <label className="form-field">
-                <span>{tr("Edge softness", "边缘柔化")}: {imageFeather}</span>
-                <input type="range" min="0" max="80" value={imageFeather} onChange={(event) => setImageFeather(Number(event.target.value))} />
-              </label>
-              <button onClick={handleRemoveImageBackground} disabled={imageLoading}>
-                {imageLoading ? texts.common.generating : tr("Remove background", "去除背景")}
-              </button>
-            </div>
+            <TransparencyControls
+              texts={texts}
+              color={imageColor}
+              setColor={setImageColor}
+              tolerance={imageTolerance}
+              setTolerance={setImageTolerance}
+              feather={imageFeather}
+              setFeather={setImageFeather}
+              actionLabel={assetText.removeBackground}
+              loading={imageLoading}
+              onAction={handleRemoveImageBackground}
+            />
           </div>
         </div>
 
@@ -517,7 +529,7 @@ function AssetToolsPage() {
           <div className="image-tool-preview">
             {imagePreviewUrl && (
               <div className="animation-preview">
-                <h3>{tr("Original", "原图")}</h3>
+                <h3>{assetText.original}</h3>
                 <div className="animation-stage">
                   <img src={imagePreviewUrl} alt="original asset" />
                 </div>
@@ -525,7 +537,7 @@ function AssetToolsPage() {
             )}
             {imageResult && (
               <div className="animation-preview">
-                <h3>{tr("Transparent PNG", "透明 PNG")}</h3>
+                <h3>{assetText.transparentPng}</h3>
                 <div className="animation-stage">
                   <img src={outputUrl(imageResult.image_path)} alt="transparent asset" />
                 </div>
@@ -550,7 +562,69 @@ function AssetToolsPage() {
   );
 }
 
-function AnimationPreview({ frames, getUrl, label, playText, pauseText }) {
+function DropZone({ label, title, hint, accept, onFile }) {
+  const [dragActive, setDragActive] = useState(false);
+
+  function handleDrop(event) {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) onFile(file);
+  }
+
+  return (
+    <label
+      className={dragActive ? "drop-zone active span-2" : "drop-zone span-2"}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={() => setDragActive(false)}
+      onDrop={handleDrop}
+    >
+      <input type="file" accept={accept} onChange={(event) => onFile(event.target.files?.[0] || null)} />
+      <span>{label}</span>
+      <strong>{title}</strong>
+      <small>{hint}</small>
+    </label>
+  );
+}
+
+function TransparencyControls({
+  texts,
+  color,
+  setColor,
+  tolerance,
+  setTolerance,
+  feather,
+  setFeather,
+  actionLabel,
+  loading,
+  onAction,
+}) {
+  const assetText = texts.assets;
+
+  return (
+    <div className="cleanup-controls">
+      <button className="secondary-button" onClick={() => setColor("#000000")}>{assetText.black}</button>
+      <button className="secondary-button" onClick={() => setColor("#ffffff")}>{assetText.white}</button>
+      <input type="color" value={color} onChange={(event) => setColor(event.target.value)} />
+      <label className="form-field">
+        <span>{assetText.tolerance}: {tolerance}</span>
+        <input type="range" min="0" max="120" value={tolerance} onChange={(event) => setTolerance(Number(event.target.value))} />
+      </label>
+      <label className="form-field">
+        <span>{assetText.edgeSoftness}: {feather}</span>
+        <input type="range" min="0" max="80" value={feather} onChange={(event) => setFeather(Number(event.target.value))} />
+      </label>
+      <button onClick={onAction} disabled={loading}>
+        {loading ? texts.common.generating : actionLabel}
+      </button>
+    </div>
+  );
+}
+
+function AnimationPreview({ frames, getUrl, texts }) {
   const [playing, setPlaying] = useState(true);
   const [current, setCurrent] = useState(0);
   const [speed, setSpeed] = useState(16);
@@ -564,21 +638,19 @@ function AnimationPreview({ frames, getUrl, label, playText, pauseText }) {
   }, [frames.length, playing, speed]);
 
   useEffect(() => {
-    if (current >= frames.length) {
-      setCurrent(0);
-    }
+    if (current >= frames.length) setCurrent(0);
   }, [current, frames.length]);
 
   if (frames.length === 0) {
-    return <div className="animation-preview empty-state">{label}</div>;
+    return <div className="animation-preview empty-state">{texts.animationPreview}</div>;
   }
 
   return (
     <div className="animation-preview">
       <div className="block-header">
-        <h3>{label}</h3>
+        <h3>{texts.animationPreview}</h3>
         <button className="secondary-button" onClick={() => setPlaying((value) => !value)}>
-          {playing ? pauseText : playText}
+          {playing ? texts.pause : texts.play}
         </button>
       </div>
       <div className="animation-stage">
@@ -601,25 +673,18 @@ function SummaryItem({ label, value }) {
   );
 }
 
-function ToggleField({ label, checked, onChange }) {
-  return (
-    <label className="toggle-field">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-function NumberField({ label, value, onChange }) {
+function NumberField({ label, value, onChange, step = "1" }) {
   return (
     <label className="form-field">
       <span>{label}</span>
-      <input type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="number" step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   );
 }
 
-function buildImportSettings(result, target, texts, tr) {
+function buildImportSettings(result, target, texts) {
+  const assetText = texts.assets;
+
   if (target === "unity") {
     const items = [
       { label: "Texture Type", value: "Sprite (2D and UI)" },
@@ -632,7 +697,7 @@ function buildImportSettings(result, target, texts, tr) {
 
   if (target === "godot") {
     const items = [
-      { label: tr("Suggested node", "建议节点"), value: "AnimatedSprite2D / Sprite2D" },
+      { label: assetText.suggestedNode, value: "AnimatedSprite2D / Sprite2D" },
       { label: "hframes", value: String(result.columns) },
       { label: "vframes", value: String(result.rows) },
       { label: "frame_count", value: String(result.frame_count) },
@@ -641,10 +706,10 @@ function buildImportSettings(result, target, texts, tr) {
   }
 
   const items = [
-    { label: tr("Slice mode", "切片方式"), value: tr("Fixed cell size", "固定单元格尺寸") },
-    { label: tr("Cell size", "单元格尺寸"), value: `${result.frame_width} x ${result.frame_height}` },
-    { label: tr("Grid", "行列"), value: `${result.columns} x ${result.rows}` },
-    { label: tr("Frame count", "帧数"), value: String(result.frame_count) },
+    { label: assetText.sliceMode, value: assetText.fixedCellSize },
+    { label: assetText.cellSize, value: `${result.frame_width} x ${result.frame_height}` },
+    { label: assetText.grid, value: `${result.columns} x ${result.rows}` },
+    { label: assetText.frames, value: String(result.frame_count) },
   ];
   return { items, copyText: formatImportText(texts.common.generic, items) };
 }
@@ -660,10 +725,7 @@ function formatTarget(value, texts) {
 }
 
 function fitWithinLimit(width, height, limit) {
-  if (width <= limit && height <= limit) {
-    return { width, height };
-  }
-
+  if (width <= limit && height <= limit) return { width, height };
   const scale = limit / Math.max(width, height);
   return {
     width: Math.max(1, Math.round(width * scale)),

@@ -78,3 +78,66 @@ def chat_completion_json(
         return data["choices"][0]["message"]["content"]
     except Exception as exc:
         raise LLMError(f"Invalid LLM response format: {data}") from exc
+
+
+def chat_completion_json_with_image(
+    system_prompt: str,
+    user_prompt: str,
+    image_data_url: str,
+    settings: LLMSettings | None = None,
+) -> str:
+    api_base_url = (settings.api_base_url if settings else LLM_API_BASE_URL).rstrip("/")
+    api_key = settings.api_key if settings else LLM_API_KEY
+    model = settings.model if settings else LLM_MODEL
+    timeout = settings.timeout if settings else LLM_TIMEOUT
+
+    if not api_base_url:
+        raise LLMError("LLM_API_BASE_URL is not configured.")
+
+    if not api_key:
+        raise LLMError("LLM_API_KEY is not configured.")
+
+    url = f"{api_base_url}/v1/chat/completions"
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_prompt},
+                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                ],
+            },
+        ],
+        "temperature": 0.4,
+        "response_format": {
+            "type": "json_object",
+        },
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+    except requests.RequestException as exc:
+        raise LLMError(f"Vision LLM request failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise LLMError(
+            f"Vision LLM API error {response.status_code}: {response.text}. "
+            "Make sure the configured model supports image input."
+        )
+
+    data = response.json()
+
+    try:
+        return data["choices"][0]["message"]["content"]
+    except Exception as exc:
+        raise LLMError(f"Invalid vision LLM response format: {data}") from exc

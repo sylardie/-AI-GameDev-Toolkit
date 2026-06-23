@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 
 LLMProvider = Literal["openai", "deepseek", "qwen", "custom"]
+ImageProvider = Literal["none", "openai", "custom"]
 
 
 class LLMSettings(BaseModel):
@@ -26,9 +27,19 @@ class ComfyUISettings(BaseModel):
     seed: int = Field(default=-1, ge=-1)
 
 
+class ImageProviderSettings(BaseModel):
+    enabled: bool = False
+    provider: ImageProvider = "none"
+    api_base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    timeout: int = Field(default=60, ge=5, le=300)
+
+
 class LocalSettings(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     comfyui: ComfyUISettings = Field(default_factory=ComfyUISettings)
+    image_provider: ImageProviderSettings = Field(default_factory=ImageProviderSettings)
 
 
 class SecretState(BaseModel):
@@ -45,9 +56,19 @@ class LLMSettingsPublic(BaseModel):
     api_key: SecretState
 
 
+class ImageProviderSettingsPublic(BaseModel):
+    enabled: bool
+    provider: ImageProvider
+    api_base_url: str
+    model: str
+    timeout: int
+    api_key: SecretState
+
+
 class LocalSettingsPublic(BaseModel):
     llm: LLMSettingsPublic
     comfyui: ComfyUISettings
+    image_provider: ImageProviderSettingsPublic
 
 
 class LLMSettingsUpdate(BaseModel):
@@ -60,9 +81,20 @@ class LLMSettingsUpdate(BaseModel):
     timeout: int = Field(default=60, ge=5, le=300)
 
 
+class ImageProviderSettingsUpdate(BaseModel):
+    enabled: bool = False
+    provider: ImageProvider = "none"
+    api_base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    keep_existing_api_key: bool = True
+    timeout: int = Field(default=60, ge=5, le=300)
+
+
 class LocalSettingsUpdate(BaseModel):
     llm: LLMSettingsUpdate
     comfyui: ComfyUISettings
+    image_provider: ImageProviderSettingsUpdate = Field(default_factory=ImageProviderSettingsUpdate)
 
 
 class ConnectionTestResponse(BaseModel):

@@ -1,17 +1,21 @@
 import json
+import re
+import zipfile
+from io import BytesIO
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 
 from app.core.config import OUTPUTS_DIR
-from app.schemas.design import DesignData
+from app.schemas.design import ConfigFieldSpec, ConfigTableSpec, DesignData
 
 
 def create_design_output_id() -> str:
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"design_{now}"
+    return f"config_tables_{now}"
 
 
 def get_design_output_dir() -> Path:
@@ -21,159 +25,264 @@ def get_design_output_dir() -> Path:
 
 
 def save_design_outputs(design_data: DesignData) -> dict:
-    """
-    Save generated design data into JSON, Markdown and Excel files.
-    """
     output_id = create_design_output_id()
     output_dir = get_design_output_dir()
 
     json_filename = f"{output_id}.json"
-    markdown_filename = f"{output_id}.md"
     excel_filename = f"{output_id}.xlsx"
+    excel_zip_filename = f"{output_id}_excel.zip"
+    godot_zip_filename = f"{output_id}_godot.zip"
 
     json_path = output_dir / json_filename
-    markdown_path = output_dir / markdown_filename
     excel_path = output_dir / excel_filename
+    excel_zip_path = output_dir / excel_zip_filename
+    godot_zip_path = output_dir / godot_zip_filename
 
     save_design_json(design_data, json_path)
-    save_design_markdown(design_data, markdown_path)
     save_design_excel(design_data, excel_path)
+    save_excel_package(design_data, excel_path, json_path, excel_zip_path, output_id)
+    save_godot_package(design_data, godot_zip_path, output_id)
 
     return {
         "output_id": output_id,
         "json_path": f"outputs/design/{json_filename}",
-        "markdown_path": f"outputs/design/{markdown_filename}",
         "excel_path": f"outputs/design/{excel_filename}",
+        "excel_zip_path": f"outputs/design/{excel_zip_filename}",
+        "godot_zip_path": f"outputs/design/{godot_zip_filename}",
     }
 
 
 def save_design_json(design_data: DesignData, json_path: Path) -> None:
-    with json_path.open("w", encoding="utf-8") as f:
-        json.dump(
-            design_data.model_dump(),
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+    payload = {
+        "title": design_data.title,
+        "gameplay_summary": design_data.gameplay_summary,
+        "tables": [
+            {
+                "name": table.name,
+                "display_name": table.display_name,
+                "purpose": table.purpose,
+                "engine_usage": table.engine_usage,
+                "fields": [field.model_dump() for field in table.fields],
+                "rows": table.rows,
+                "notes": table.notes,
+            }
+            for table in design_data.tables
+        ],
+        "export_notes": design_data.export_notes,
+    }
 
+    with json_path.open("w", encoding="utf-8") as file:
+        json.dump(payload, file, ensure_ascii=False, indent=2)
 
-def save_design_markdown(design_data: DesignData, markdown_path: Path) -> None:
-    markdown = render_design_markdown(design_data)
-
-    with markdown_path.open("w", encoding="utf-8") as f:
-        f.write(markdown)
 
 def save_design_excel(design_data: DesignData, excel_path: Path) -> None:
     workbook = Workbook()
-
-    # Remove default sheet
     default_sheet = workbook.active
     workbook.remove(default_sheet)
 
     add_overview_sheet(workbook, design_data)
-    add_table_sheet(
-        workbook,
-        "Systems",
-        ["id", "name", "category", "description"],
-        [item.model_dump() for item in design_data.systems],
-    )
-    add_table_sheet(
-        workbook,
-        "Resources",
-        ["id", "name", "resource_type", "description"],
-        [item.model_dump() for item in design_data.resources],
-    )
-    add_table_sheet(
-        workbook,
-        "Items",
-        ["id", "name", "item_type", "category", "effect", "properties"],
-        [item.model_dump() for item in design_data.items],
-    )
-    add_table_sheet(
-        workbook,
-        "Entities",
-        ["id", "name", "entity_type", "category", "rarity", "description", "properties"],
-        [item.model_dump() for item in design_data.entities],
-    )
-    add_table_sheet(
-        workbook,
-        "Progression",
-        ["id", "name", "progression_type", "order", "requirement", "unlocks", "description"],
-        [item.model_dump() for item in design_data.progression],
-    )
-    add_table_sheet(
-        workbook,
-        "Tasks",
-        ["id", "name", "task_type", "objective", "reward", "unlock_condition"],
-        [item.model_dump() for item in design_data.tasks],
-    )
-    add_table_sheet(
-        workbook,
-        "Levels",
-        ["id", "name", "level_type", "order", "goal", "unlock_condition", "description"],
-        [item.model_dump() for item in design_data.levels],
-    )
-    add_table_sheet(
-        workbook,
-        "BalanceNotes",
-        ["target", "note"],
-        [item.model_dump() for item in design_data.balance_notes],
-    )
+
+    for table in design_data.tables:
+        add_config_table_sheet(workbook, table)
 
     workbook.save(excel_path)
 
 
 def add_overview_sheet(workbook: Workbook, design_data: DesignData) -> None:
     sheet = workbook.create_sheet("Overview")
-
-    rows = [
-        ["Field", "Value"],
-        ["Title", design_data.title],
-        ["Template", design_data.template],
-        ["Genre", " / ".join(design_data.genre)],
-        ["Target Audience", design_data.target_audience],
-        ["Pitch", design_data.pitch],
-        ["Core Loop", "\n".join(design_data.core_loop)],
-    ]
-
-    for row in rows:
-        sheet.append(row)
+    sheet.append(["Field", "Value"])
+    sheet.append(["Title", design_data.title])
+    sheet.append(["Gameplay Summary", design_data.gameplay_summary])
+    sheet.append(["Tables", ", ".join(table.name for table in design_data.tables)])
+    sheet.append(["Export Notes", "\n".join(design_data.export_notes)])
 
     style_sheet(sheet)
     sheet.column_dimensions["A"].width = 24
     sheet.column_dimensions["B"].width = 100
-
     for cell in sheet["B"]:
         cell.alignment = Alignment(wrap_text=True, vertical="top")
 
 
-def add_table_sheet(workbook: Workbook, sheet_name: str, headers: list[str], rows: list[dict]) -> None:
+def add_config_table_sheet(workbook: Workbook, table: ConfigTableSpec) -> None:
+    sheet_name = safe_sheet_name(table.name)
     sheet = workbook.create_sheet(sheet_name)
-    sheet.append(headers)
+    add_config_table_rows(sheet, table)
 
-    for row in rows:
-        values = []
-        for header in headers:
-            value = row.get(header, "")
 
-            if isinstance(value, list):
-                value = ", ".join(str(item) for item in value)
-            elif isinstance(value, dict):
-                value = json.dumps(value, ensure_ascii=False)
+def add_config_table_rows(sheet, table: ConfigTableSpec) -> None:
+    field_names = [field.name for field in table.fields]
+    sheet.append(field_names)
+    sheet.append([field.type for field in table.fields])
+    sheet.append([field.description for field in table.fields])
 
-            values.append(value)
-
-        sheet.append(values)
+    for row in table.rows:
+        sheet.append([format_excel_value(row.get(field_name, "")) for field_name in field_names])
 
     style_sheet(sheet)
+    type_fill = PatternFill("solid", fgColor="D9EAF7")
+    desc_fill = PatternFill("solid", fgColor="EAF4DD")
 
+    for cell in sheet[2]:
+        cell.fill = type_fill
+        cell.font = Font(color="1F2937", bold=True)
+    for cell in sheet[3]:
+        cell.fill = desc_fill
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    sheet.freeze_panes = "A4"
     for column_cells in sheet.columns:
         column_letter = column_cells[0].column_letter
-        sheet.column_dimensions[column_letter].width = 22
-
+        sheet.column_dimensions[column_letter].width = 24
     for row_cells in sheet.iter_rows():
         for cell in row_cells:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+
+def save_excel_package(
+    design_data: DesignData,
+    excel_path: Path,
+    json_path: Path,
+    zip_path: Path,
+    output_id: str,
+) -> None:
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as package:
+        package.write(excel_path, arcname=f"{output_id}.xlsx")
+        package.write(json_path, arcname=f"{output_id}.json")
+        package.writestr("README.md", render_excel_package_readme(design_data))
+
+        for table in design_data.tables:
+            table_payload = {
+                "name": table.name,
+                "display_name": table.display_name,
+                "purpose": table.purpose,
+                "engine_usage": table.engine_usage,
+                "fields": [field.model_dump() for field in table.fields],
+                "rows": table.rows,
+                "notes": table.notes,
+            }
+            package.writestr(
+                f"tables/{safe_file_name(table.name)}.json",
+                json.dumps(table_payload, ensure_ascii=False, indent=2),
+            )
+            package.writestr(
+                f"tables/{safe_file_name(table.name)}.xlsx",
+                render_single_table_excel(table),
+            )
+
+
+def render_excel_package_readme(design_data: DesignData) -> str:
+    lines = [
+        f"# {design_data.title}",
+        "",
+        design_data.gameplay_summary,
+        "",
+        "## Package Contents",
+        "",
+        "- One `.xlsx` workbook with all generated config tables.",
+        "- One full `.json` package for runtime import or tooling.",
+        "- Per-table `.json` and `.xlsx` files under `tables/`.",
+        "",
+        "## Tables",
+        "",
+    ]
+
+    for table in design_data.tables:
+        lines.append(f"- {table.name}: {table.purpose}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_single_table_excel(table: ConfigTableSpec) -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = safe_sheet_name(table.name)
+    add_config_table_rows(sheet, table)
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def save_godot_package(design_data: DesignData, zip_path: Path, output_id: str) -> None:
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as package:
+        package.writestr("config_table_resource.gd", render_godot_resource_script())
+        package.writestr("README.md", render_godot_readme(design_data))
+
+        for table in design_data.tables:
+            file_name = f"tables/{safe_file_name(table.name)}.tres"
+            package.writestr(file_name, render_table_tres(table))
+
+        package.writestr(
+            f"{output_id}.json",
+            json.dumps(design_data.model_dump(), ensure_ascii=False, indent=2),
+        )
+
+
+def render_godot_resource_script() -> str:
+    return """extends Resource
+class_name ConfigTableResource
+
+@export var table_name: String = ""
+@export_multiline var purpose: String = ""
+@export var fields: Array[Dictionary] = []
+@export var rows: Array[Dictionary] = []
+"""
+
+
+def render_godot_readme(design_data: DesignData) -> str:
+    lines = [
+        f"# {design_data.title}",
+        "",
+        design_data.gameplay_summary,
+        "",
+        "## Usage",
+        "",
+        "1. Copy `config_table_resource.gd` into your Godot project.",
+        "2. Copy the `.tres` files from `tables/` into a data folder.",
+        "3. Load a table with `load(\"res://path/to/Items.tres\")`.",
+        "4. Read `rows` as dictionaries in your gameplay systems.",
+        "",
+        "## Tables",
+        "",
+    ]
+
+    for table in design_data.tables:
+        lines.append(f"- {table.name}: {table.purpose}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_table_tres(table: ConfigTableSpec) -> str:
+    return "\n".join(
+        [
+            '[gd_resource type="Resource" script_class="ConfigTableResource" load_steps=2 format=3]',
+            "",
+            '[ext_resource type="Script" path="res://config_table_resource.gd" id="1"]',
+            "",
+            "[resource]",
+            'script = ExtResource("1")',
+            f'table_name = "{escape_godot_string(table.name)}"',
+            f'purpose = "{escape_godot_string(table.purpose)}"',
+            f"fields = {to_godot_variant_array([field.model_dump() for field in table.fields])}",
+            f"rows = {to_godot_variant_array(table.rows)}",
+            "",
+        ]
+    )
+
+
+def to_godot_variant_array(value: list[dict[str, Any]]) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def escape_godot_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def format_excel_value(value: Any) -> Any:
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False)
+    return value
 
 
 def style_sheet(sheet) -> None:
@@ -183,126 +292,14 @@ def style_sheet(sheet) -> None:
     for cell in sheet[1]:
         cell.fill = header_fill
         cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-
-    sheet.freeze_panes = "A2"
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
-def render_design_markdown(design_data: DesignData) -> str:
-    lines = []
+def safe_sheet_name(name: str) -> str:
+    cleaned = re.sub(r"[\[\]\:\*\?\/\\]", "_", name).strip() or "Table"
+    return cleaned[:31]
 
-    lines.append(f"# {design_data.title}")
-    lines.append("")
-    lines.append("## 模板")
-    lines.append("")
-    lines.append(design_data.template)
-    lines.append("")
-    lines.append("## 类型")
-    lines.append("")
-    lines.append(" / ".join(design_data.genre))
-    lines.append("")
-    lines.append("## 目标用户")
-    lines.append("")
-    lines.append(design_data.target_audience)
-    lines.append("")
-    lines.append("## 一句话概念")
-    lines.append("")
-    lines.append(design_data.pitch)
-    lines.append("")
-    lines.append("## 核心循环")
-    lines.append("")
 
-    for index, step in enumerate(design_data.core_loop, start=1):
-        lines.append(f"{index}. {step}")
-
-    lines.append("")
-    lines.append("## 系统拆解")
-    lines.append("")
-    lines.append("| ID | 名称 | 分类 | 描述 |")
-    lines.append("|---|---|---|---|")
-
-    for system in design_data.systems:
-        lines.append(
-            f"| {system.id} | {system.name} | {system.category} | {system.description} |"
-        )
-
-    lines.append("")
-    lines.append("## 资源表")
-    lines.append("")
-    lines.append("| ID | 名称 | 类型 | 描述 |")
-    lines.append("|---|---|---|---|")
-
-    for resource in design_data.resources:
-        lines.append(
-            f"| {resource.id} | {resource.name} | {resource.resource_type} | {resource.description} |"
-        )
-
-    lines.append("")
-    lines.append("## 道具表")
-    lines.append("")
-    lines.append("| ID | 名称 | 类型 | 分类 | 效果 | 扩展属性 |")
-    lines.append("|---|---|---|---|---|---|")
-
-    for item in design_data.items:
-        lines.append(
-            f"| {item.id} | {item.name} | {item.item_type} | {item.category} | {item.effect} | {item.properties} |"
-        )
-
-    lines.append("")
-    lines.append("## 实体表")
-    lines.append("")
-    lines.append("| ID | 名称 | 实体类型 | 分类 | 稀有度 | 描述 | 扩展属性 |")
-    lines.append("|---|---|---|---|---|---|---|")
-
-    for entity in design_data.entities:
-        rarity = entity.rarity or ""
-        lines.append(
-            f"| {entity.id} | {entity.name} | {entity.entity_type} | {entity.category} | {rarity} | {entity.description} | {entity.properties} |"
-        )
-
-    lines.append("")
-    lines.append("## 成长 / 解锁表")
-    lines.append("")
-    lines.append("| ID | 名称 | 类型 | 顺序 | 条件 | 解锁内容 | 描述 |")
-    lines.append("|---|---|---|---|---|---|---|")
-
-    for progression in design_data.progression:
-        unlocks = ", ".join(progression.unlocks)
-        lines.append(
-            f"| {progression.id} | {progression.name} | {progression.progression_type} | {progression.order} | {progression.requirement} | {unlocks} | {progression.description} |"
-        )
-
-    lines.append("")
-    lines.append("## 任务 / 目标表")
-    lines.append("")
-    lines.append("| ID | 名称 | 类型 | 目标 | 奖励 | 解锁条件 |")
-    lines.append("|---|---|---|---|---|---|")
-
-    for task in design_data.tasks:
-        lines.append(
-            f"| {task.id} | {task.name} | {task.task_type} | {task.objective} | {task.reward} | {task.unlock_condition} |"
-        )
-
-    lines.append("")
-    lines.append("## 关卡 / 区域表")
-    lines.append("")
-    lines.append("| ID | 名称 | 类型 | 顺序 | 目标 | 解锁条件 | 描述 |")
-    lines.append("|---|---|---|---|---|---|---|")
-
-    for level in design_data.levels:
-        lines.append(
-            f"| {level.id} | {level.name} | {level.level_type} | {level.order} | {level.goal} | {level.unlock_condition} | {level.description} |"
-        )
-
-    lines.append("")
-    lines.append("## 平衡性建议")
-    lines.append("")
-    lines.append("| 目标 | 建议 |")
-    lines.append("|---|---|")
-
-    for note in design_data.balance_notes:
-        lines.append(f"| {note.target} | {note.note} |")
-
-    lines.append("")
-
-    return "\n".join(lines)
+def safe_file_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_\-]+", "_", name).strip("_")
+    return cleaned or "table"

@@ -4,6 +4,7 @@ import {
   getSettings,
   saveSettings,
   testComfyConnection,
+  testImageProviderConnection,
   testLlmConnection,
 } from "../api/settingsApi";
 import { useI18n } from "../i18n/I18nContext";
@@ -28,6 +29,15 @@ const emptySettings = {
     cfg: 7,
     seed: -1,
   },
+  image_provider: {
+    enabled: false,
+    provider: "none",
+    api_base_url: "",
+    model: "",
+    api_key: "",
+    keep_existing_api_key: true,
+    timeout: 60,
+  },
 };
 
 function SettingsPage() {
@@ -35,6 +45,7 @@ function SettingsPage() {
   const settingsText = texts.settings;
   const [form, setForm] = useState(emptySettings);
   const [apiKeyState, setApiKeyState] = useState({ configured: false, preview: "" });
+  const [imageApiKeyState, setImageApiKeyState] = useState({ configured: false, preview: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState("");
@@ -58,8 +69,14 @@ function SettingsPage() {
           keep_existing_api_key: true,
         },
         comfyui: data.comfyui,
+        image_provider: {
+          ...data.image_provider,
+          api_key: "",
+          keep_existing_api_key: true,
+        },
       });
       setApiKeyState(data.llm.api_key);
+      setImageApiKeyState(data.image_provider.api_key);
     } catch (err) {
       setError(err.message || settingsText.loadError);
     } finally {
@@ -81,8 +98,14 @@ function SettingsPage() {
           keep_existing_api_key: true,
         },
         comfyui: data.comfyui,
+        image_provider: {
+          ...data.image_provider,
+          api_key: "",
+          keep_existing_api_key: true,
+        },
       });
       setApiKeyState(data.llm.api_key);
+      setImageApiKeyState(data.image_provider.api_key);
       setMessage(texts.common.saved);
     } catch (err) {
       setError(err.message || settingsText.saveError);
@@ -97,7 +120,12 @@ function SettingsPage() {
     setError("");
 
     try {
-      const result = kind === "llm" ? await testLlmConnection() : await testComfyConnection();
+      const result =
+        kind === "llm"
+          ? await testLlmConnection()
+          : kind === "image"
+            ? await testImageProviderConnection()
+            : await testComfyConnection();
       if (result.ok) {
         setMessage(result.message);
       } else {
@@ -127,6 +155,17 @@ function SettingsPage() {
       comfyui: {
         ...current.comfyui,
         [key]: value,
+      },
+    }));
+  }
+
+  function updateImageProvider(key, value) {
+    setForm((current) => ({
+      ...current,
+      image_provider: {
+        ...current.image_provider,
+        [key]: value,
+        ...(key === "api_key" ? { keep_existing_api_key: value.length === 0 } : {}),
       },
     }));
   }
@@ -176,10 +215,7 @@ function SettingsPage() {
             <span>{settingsText.model}</span>
             <input value={form.llm.model} onChange={(event) => updateLlm("model", event.target.value)} />
           </label>
-          <label className="form-field">
-            <span>{settingsText.timeout}</span>
-            <input type="number" value={form.llm.timeout} onChange={(event) => updateLlm("timeout", Number(event.target.value))} />
-          </label>
+          <NumberField label={settingsText.timeout} value={form.llm.timeout} onChange={(value) => updateLlm("timeout", value)} />
           <label className="form-field span-2">
             <span>
               {settingsText.apiKey} · {settingsText.keyConfigured}
@@ -197,6 +233,74 @@ function SettingsPage() {
         <div className="action-row">
           <button className="secondary-button" onClick={() => runTest("llm")} disabled={testing === "llm"}>
             {testing === "llm" ? texts.common.testing : `${texts.common.test} LLM`}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-header-row">
+          <div>
+            <h2>{settingsText.imageProviderTitle}</h2>
+            <p>{settingsText.imageProviderHint}</p>
+          </div>
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={form.image_provider.enabled}
+              onChange={(event) => updateImageProvider("enabled", event.target.checked)}
+            />
+            <span>{settingsText.enabled}</span>
+          </label>
+        </div>
+
+        <div className="settings-grid">
+          <label className="form-field">
+            <span>{settingsText.provider}</span>
+            <select
+              value={form.image_provider.provider}
+              onChange={(event) => updateImageProvider("provider", event.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="openai">OpenAI Images</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>{settingsText.baseUrl}</span>
+            <input
+              value={form.image_provider.api_base_url}
+              onChange={(event) => updateImageProvider("api_base_url", event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>{settingsText.model}</span>
+            <input
+              value={form.image_provider.model}
+              onChange={(event) => updateImageProvider("model", event.target.value)}
+            />
+          </label>
+          <NumberField
+            label={settingsText.timeout}
+            value={form.image_provider.timeout}
+            onChange={(value) => updateImageProvider("timeout", value)}
+          />
+          <label className="form-field span-2">
+            <span>
+              {settingsText.apiKey} · {settingsText.keyConfigured}
+              {imageApiKeyState.configured ? imageApiKeyState.preview : "No"}
+            </span>
+            <input
+              type="password"
+              value={form.image_provider.api_key}
+              onChange={(event) => updateImageProvider("api_key", event.target.value)}
+              placeholder={settingsText.apiKeyPlaceholder}
+            />
+          </label>
+        </div>
+
+        <div className="action-row">
+          <button className="secondary-button" onClick={() => runTest("image")} disabled={testing === "image"}>
+            {testing === "image" ? texts.common.testing : `${texts.common.test} Image Provider`}
           </button>
         </div>
       </section>

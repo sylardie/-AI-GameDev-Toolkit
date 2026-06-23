@@ -3,6 +3,8 @@ from pathlib import Path
 
 from app.core.config import DATA_DIR
 from app.schemas.settings import (
+    ImageProviderSettings,
+    ImageProviderSettingsPublic,
     LLMSettings,
     LLMSettingsPublic,
     LocalSettings,
@@ -21,15 +23,28 @@ def load_settings() -> LocalSettings:
         return LocalSettings()
 
     with SETTINGS_PATH.open("r", encoding="utf-8") as file:
-        return LocalSettings.model_validate(json.load(file))
+        data = json.load(file)
+
+    image_provider = data.get("image_provider")
+    if isinstance(image_provider, dict) and image_provider.get("provider") not in {
+        "none",
+        "openai",
+        "custom",
+    }:
+        image_provider["provider"] = "custom"
+
+    return LocalSettings.model_validate(data)
 
 
 def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
     current = load_settings()
-    api_key = update.llm.api_key.strip()
+    llm_api_key = update.llm.api_key.strip()
+    image_api_key = update.image_provider.api_key.strip()
 
-    if not api_key and update.llm.keep_existing_api_key:
-        api_key = current.llm.api_key
+    if not llm_api_key and update.llm.keep_existing_api_key:
+        llm_api_key = current.llm.api_key
+    if not image_api_key and update.image_provider.keep_existing_api_key:
+        image_api_key = current.image_provider.api_key
 
     settings = LocalSettings(
         llm=LLMSettings(
@@ -37,10 +52,18 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
             provider=update.llm.provider,
             api_base_url=update.llm.api_base_url.strip().rstrip("/"),
             model=update.llm.model.strip(),
-            api_key=api_key,
+            api_key=llm_api_key,
             timeout=update.llm.timeout,
         ),
         comfyui=update.comfyui,
+        image_provider=ImageProviderSettings(
+            enabled=update.image_provider.enabled,
+            provider=update.image_provider.provider,
+            api_base_url=update.image_provider.api_base_url.strip().rstrip("/"),
+            model=update.image_provider.model.strip(),
+            api_key=image_api_key,
+            timeout=update.image_provider.timeout,
+        ),
     )
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -65,6 +88,17 @@ def public_settings(settings: LocalSettings | None = None) -> LocalSettingsPubli
             ),
         ),
         comfyui=settings.comfyui,
+        image_provider=ImageProviderSettingsPublic(
+            enabled=settings.image_provider.enabled,
+            provider=settings.image_provider.provider,
+            api_base_url=settings.image_provider.api_base_url,
+            model=settings.image_provider.model,
+            timeout=settings.image_provider.timeout,
+            api_key=SecretState(
+                configured=bool(settings.image_provider.api_key),
+                preview=_secret_preview(settings.image_provider.api_key),
+            ),
+        ),
     )
 
 

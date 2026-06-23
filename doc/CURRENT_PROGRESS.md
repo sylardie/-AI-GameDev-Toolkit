@@ -584,12 +584,257 @@ Implemented:
 * Added import-settings copy button.
 * Kept outputs download-only and did not write into external Godot / Unity project folders.
 * Cleaned Asset Tools page copy to remove remaining visible encoding artifacts.
+* Added local video preview after selecting a video file.
+* Video preview uses a browser object URL and does not upload the video before extraction.
+* Old preview object URLs are released when the selected video changes.
+
+### Product Direction Convergence: Config Manager MVP
+
+Implemented:
+
+* Added a new read-only Config Manager workflow for Excel configuration folders.
+* Added backend `/api/configs/status`.
+* Added backend `/api/configs/scan`.
+* Added explicit Config Manager schemas:
+
+  * `ConfigScanRequest`
+  * `ConfigWorkbookItem`
+  * `ConfigSheetSummary`
+  * `ConfigIssue`
+  * `ConfigScanResponse`
+
+* Added a local Excel scanner using `openpyxl`.
+* The scanner recursively reads `.xlsx` files and skips temporary Excel files such as `~$*.xlsx`.
+* The scanner ignores heavy/generated folders such as `.git`, `.godot`, `Library`, `Temp`, `Build`, `node_modules`, `.venv`, and related output/cache folders.
+* The scanner returns:
+
+  * workbook list
+  * sheet list
+  * row count
+  * column count
+  * header list
+  * issue summary
+
+* Basic diagnostics implemented:
+
+  * empty sheet / missing usable header row
+  * missing `id` column
+  * blank header cells
+  * duplicate headers
+
+* Added frontend Config Manager page at `/configs`.
+* Added sidebar navigation entry for Config Manager.
+* Added path input, scan button, summary cards, workbook list, sheet tabs, header chips, and diagnostic cards.
+* Config Manager is read-only and does not modify Excel files.
+* Removed browser file / folder upload scanning from Config Manager.
+* Config Manager now uses local Excel folder paths as the main workflow.
+* Added saved local Excel folder paths in the frontend.
+* Saved paths are stored in browser local storage for quick switching between multiple projects.
+* Added workbook search in Config Manager.
+* Workbook search matches file names, relative paths, sheet names, and headers.
+* Improved workbook search ordering with weighted matching:
+
+  * exact file name match
+  * file name prefix match
+  * file name contains match
+  * relative path match
+  * sheet/header match
+
+* This makes direct file matches such as `Pet.xlsx` appear before weaker sheet/header matches when searching `pet`.
+* Added `POST /api/configs/open` for opening local `.xlsx` files with the system default app.
+* The open-in-Excel button opens files from scanned local paths.
+* Added favorite Excel files in Config Manager.
+* Favorite Excel files are stored in browser local storage and can be opened quickly.
+* Improved sheet selection for workbooks with many sheets:
+
+  * sheet tabs now wrap
+  * sheet tab area has a max height and scrolls
+  * added sheet-name search
+  * long sheet names are truncated inside tabs
+
+* Removed the Excel preview table after review to keep Config Manager focused on scanning, diagnostics, search, and opening local files.
+
+### Product Direction Convergence: Settings / Art Provider Abstraction
+
+Implemented:
+
+* Added a local `image_provider` settings schema.
+* Added Settings UI for optional online image Provider configuration:
+
+  * enabled
+  * provider
+  * Base URL
+  * model
+  * API key
+  * timeout
+
+* Image Provider API keys are saved only in backend local settings and returned to the frontend only as masked configured state.
+* No actual online image generation submission is implemented in this pass.
+
+### Product Direction Convergence: Asset Tools Practical Cleanup
+
+Implemented:
+
+* Removed similar-frame dedupe and similarity threshold from the Asset Tools UI.
+* Frontend still submits dedupe disabled for backend compatibility.
+* Replaced raw start / end time number fields with a browser-side video-duration range slider.
+* The time range control shows start time, end time, and selected duration.
+* Rebuilt Asset Tools page text to remove visible encoding artifacts.
+* Rebuilt frontend translation text to clean visible Chinese / English copy and add Config Manager text.
+
+Verification:
+
+* `python -m compileall app` passes.
+* `npm.cmd run build` passes.
+* Smoke tested `/api/configs/scan` with a temporary Excel folder:
+
+  * found one workbook
+  * found two sheets
+  * skipped one `~$` temp workbook
+  * detected blank header, duplicate header, and missing id issues
+
+Modified files:
+
+```text
+backend/app/api/configs.py
+backend/app/main.py
+backend/app/modules/config_manager/__init__.py
+backend/app/modules/config_manager/excel_scanner.py
+backend/app/modules/shared/settings_store.py
+backend/app/schemas/configs.py
+backend/app/schemas/settings.py
+frontend/src/App.jsx
+frontend/src/api/assetsApi.js
+frontend/src/api/configsApi.js
+frontend/src/components/Sidebar.jsx
+frontend/src/i18n/translations.js
+frontend/src/pages/AssetToolsPage.jsx
+frontend/src/pages/ConfigManagerPage.jsx
+frontend/src/pages/SettingsPage.jsx
+frontend/src/styles/app.css
+README.md
+doc/PROJECT_DESIGN.md
+doc/ROADMAP.md
+doc/CURRENT_PROGRESS.md
+```
+
+### Workflow Convergence: Config Tables and Real Image Pipeline
+
+Implemented:
+
+* Reworked Config Generator runtime schema from generic design / GDD data to schema-first configuration table packages.
+* Config Generator now focuses on:
+
+  * gameplay idea input
+  * generated config tables
+  * field specs
+  * example rows
+  * Excel configuration package export
+  * Godot `.tres` resource ZIP export
+
+* Removed Markdown / GDD output from the Config Generator frontend workflow.
+* Removed separate JSON download, separate Excel download, and copy-config-JSON from the Config Generator frontend workflow.
+* Added Excel configuration package export containing:
+
+  * one `.xlsx` workbook
+  * one full JSON package
+  * per-table JSON files under `tables/`
+  * README
+
+* Excel export now writes one table per sheet, including field names, field types, field descriptions, and example rows.
+* Godot export now creates a ZIP containing:
+
+  * `config_table_resource.gd`
+  * `.tres` files under `tables/`
+  * a JSON copy of the generated config package
+  * a short Godot usage README
+
+* Code Agent file scan results are now sorted by size descending inside scripts, scenes, resources, configs, and others.
+* Global select controls now use custom arrow styling and extra right padding.
+* Settings Image Provider options are narrowed to OpenAI-compatible providers:
+
+  * OpenAI Images
+  * Custom
+
+* Added Image Provider connection test endpoint.
+* Added real Art Pipeline image generation endpoint using OpenAI-compatible `/v1/images/generations`.
+* Image generation stores output images under `outputs/art/` and exposes them through the safe download endpoint.
+* Added upload-image analysis endpoint using the existing LLM settings with a vision-capable model.
+* Image analysis returns structured reusable art data:
+
+  * content prompt
+  * style spec prompt
+  * negative prompt
+  * palette
+  * camera view
+  * resolution advice
+  * naming advice
+  * suitable asset types
+
+* Added local Art Style Profile storage:
+
+  * list profiles
+  * save profile
+  * delete profile
+  * reuse profile during image generation
+
+* Updated Art Pipeline frontend with:
+
+  * image generation section
+  * uploaded image preview
+  * reverse-prompt analysis section
+  * style profile library
+  * generated image preview and download
+
+Verification:
+
+* `python -m compileall app` passes.
+* `npm.cmd run build` passes.
+* Smoke tested:
+
+  * image generation with disabled Image Provider returns a clear error
+  * sample Config Generator export writes JSON / Excel / Godot ZIP paths
+  * sample Excel configuration package contains `.xlsx`, full JSON, per-table JSON, and README
+  * current configured LLM endpoint fails with a clear upstream connection error when unreachable
+
+Modified files:
+
+```text
+backend/app/api/art.py
+backend/app/api/design.py
+backend/app/api/settings.py
+backend/app/modules/art_pipeline/image_analyzer.py
+backend/app/modules/art_pipeline/image_provider_client.py
+backend/app/modules/art_pipeline/style_profile_store.py
+backend/app/modules/code_agent/project_scanner.py
+backend/app/modules/design_generator/exporter.py
+backend/app/modules/design_generator/llm_generator.py
+backend/app/modules/shared/llm_client.py
+backend/app/modules/shared/settings_store.py
+backend/app/schemas/art.py
+backend/app/schemas/design.py
+backend/app/schemas/settings.py
+frontend/src/api/artApi.js
+frontend/src/api/settingsApi.js
+frontend/src/pages/ArtPipelinePage.jsx
+frontend/src/pages/DesignGeneratorPage.jsx
+frontend/src/pages/SettingsPage.jsx
+frontend/src/i18n/translations.js
+frontend/src/styles/app.css
+README.md
+AGENTS.md
+doc/CURRENT_PROGRESS.md
+```
 
 Need to implement later:
 
 * Optional confirmed write into a selected Godot / Unity project
 * Animation row grouping
 * More accurate browser-side source FPS detection
+* Config Manager JSON export
+* Config Manager field type validation
+* Config Manager cross-table reference checks
+* Config Generator schema-first table output as the primary result
 
 ## Recommended Next Task
 
@@ -615,3 +860,72 @@ Scope:
    * Keep local-first behavior.
    * Keep external services behind explicit user configuration.
    * Do not write into external projects without explicit user confirmation.
+
+## Current Phase Update: Config Package Completion, Asset UX, Audio Tools
+
+Implemented:
+
+* Config Generator Excel package now includes per-table `.xlsx` files under `tables/` in addition to each table JSON file.
+* Excel configuration package still includes the full workbook, full JSON package, and `README.md`.
+* Asset Tools video upload and single-image upload now support drag/drop.
+* Asset Tools video time range is back to manual seconds input for start / end time.
+* Asset Tools shows video local preview after upload.
+* Asset Tools background cleanup copy now explains the practical workflow:
+
+  * choose the background color to make transparent
+  * raise tolerance to match a wider color range
+  * raise edge softness when color residue remains
+  * test on a small result before applying broadly
+
+* Rebuilt frontend translation text for this pass and added Audio Tools bilingual copy.
+* Added Audio Tools page at `/audio`.
+* Added Audio Tools backend endpoint `POST /api/audio/process`.
+* Audio Tools supports:
+
+  * local drag/drop audio upload
+  * browser preview playback
+  * start / end seconds clipping
+  * optional ffmpeg `loudnorm` volume normalization
+  * WAV / OGG / MP3 output
+  * processed audio, metadata JSON, and ZIP downloads
+
+* Audio output is written only under `outputs/audio/`.
+* README now records optional free / low-cost multimodal API notes:
+
+  * Gemini API free tier and limits: https://ai.google.dev/gemini-api/docs/pricing and https://ai.google.dev/gemini-api/docs/rate-limits
+  * Hugging Face Inference Providers free credits: https://huggingface.co/docs/inference-providers/pricing and https://huggingface.co/docs/inference-providers/index
+  * Pollinations as an experimental provider: https://github.com/pollinations/pollinations
+
+Modified files:
+
+```text
+AGENTS.md
+README.md
+backend/app/api/audio.py
+backend/app/main.py
+backend/app/modules/art_pipeline/audio_processor.py
+backend/app/modules/design_generator/exporter.py
+backend/app/schemas/audio.py
+frontend/src/App.jsx
+frontend/src/api/audioApi.js
+frontend/src/components/Sidebar.jsx
+frontend/src/i18n/translations.js
+frontend/src/pages/AssetToolsPage.jsx
+frontend/src/pages/AudioToolsPage.jsx
+frontend/src/styles/app.css
+doc/CURRENT_PROGRESS.md
+```
+
+Recommended follow-up:
+
+* Add Config Manager JSON export and cross-table reference checks.
+* Add audio batch processing after single-file audio workflow is validated.
+* Decide whether Gemini or Hugging Face should become a first-class Provider after image generation / image analysis workflows stabilize.
+
+Verification:
+
+* `python -m compileall app` passes.
+* `npm.cmd run build` passes.
+* Smoke tested Excel package export and confirmed `tables/` contains both per-table `.json` and `.xlsx`.
+* Smoke tested Audio Tools processing with a generated short audio file and confirmed processed OGG, metadata JSON, and ZIP outputs exist.
+* Confirmed running OpenAPI includes `/api/audio/process`.

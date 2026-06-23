@@ -15,15 +15,25 @@ In practice:
 
 ## Current Direction
 
+The product direction is now narrower and more practical:
+
+* Convert generic AI answers into game-development deliverables.
+* Prioritize configuration tables, Excel folder management, project diagnostics, asset specifications, and import parameters.
+* Keep every external integration optional and configurable.
+
 ### Completed Broad Workflow
 
-* Design Generator MVP
+* Config Generator / Design Generator MVP
+* Config Manager MVP
 * Code Agent MVP through v0.5
 * Art Pipeline MVP
+* Asset Tools spritesheet / cleanup workflow
 
 ### Next Broad Step
 
-* Broad MVP integration pass
+* Make Config Generator schema-first for Unity / Godot config tables.
+* Deepen Config Manager with JSON export, field validation, and cross-table reference checks.
+* Shape Art Pipeline around Art Style Profiles instead of generic prompt display.
 
 ## Broad MVP Integration Scope
 
@@ -39,10 +49,8 @@ Frontend:
 * Make module descriptions current
 * Light consistency pass across the three main pages
 
-Out of scope for this pass:
+Out of scope until explicit confirmation:
 
-* ComfyUI API calls
-* Batch image generation
 * Writing files into external projects
-* Detailed visual polish
-* Advanced prompt library management
+* Binding to one online image API provider without a concrete production workflow
+* Long-form generic AI answers as primary output

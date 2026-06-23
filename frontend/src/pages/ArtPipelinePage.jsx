@@ -1,6 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { generateArtPrompt, submitComfyPrompt } from "../api/artApi";
+import {
+  analyzeArtImage,
+  createStyleProfile,
+  deleteStyleProfile,
+  generateArtImage,
+  generateArtPrompt,
+  getStyleProfiles,
+  submitComfyPrompt,
+} from "../api/artApi";
+import { downloadFile } from "../api/fileApi";
 import { useI18n } from "../i18n/I18nContext";
 
 const assetTypeValues = ["character", "item", "environment", "ui_icon", "sprite", "tileset", "concept_art"];
@@ -22,6 +31,43 @@ function ArtPipelinePage() {
   const [comfyError, setComfyError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [profiles, setProfiles] = useState([]);
+  const [profileError, setProfileError] = useState("");
+  const [imagePrompt, setImagePrompt] = useState(artText.imagePromptExample);
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [styleProfileId, setStyleProfileId] = useState("");
+  const [imageSize, setImageSize] = useState("1024x1024");
+  const [imageCount, setImageCount] = useState(1);
+  const [imageResult, setImageResult] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState("");
+
+  const [analysisFile, setAnalysisFile] = useState(null);
+  const [analysisPreview, setAnalysisPreview] = useState("");
+  const [analysis, setAnalysis] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+  const [profileName, setProfileName] = useState("");
+
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (analysisPreview) URL.revokeObjectURL(analysisPreview);
+    };
+  }, [analysisPreview]);
+
+  async function loadProfiles() {
+    try {
+      const data = await getStyleProfiles();
+      setProfiles(data.profiles || []);
+    } catch (err) {
+      setProfileError(err.message);
+    }
+  }
 
   function buildPayload() {
     return {
@@ -47,7 +93,10 @@ function ArtPipelinePage() {
     setResult(null);
 
     try {
-      setResult(await generateArtPrompt(buildPayload()));
+      const data = await generateArtPrompt(buildPayload());
+      setResult(data);
+      setImagePrompt(data.positive_prompt);
+      setNegativePrompt(data.negative_prompt);
     } catch (err) {
       setError(err.message || artText.errors.generate);
     } finally {
@@ -67,16 +116,93 @@ function ArtPipelinePage() {
 
     try {
       const data = await submitComfyPrompt(buildPayload());
-      if (data.submitted) {
-        setComfyResult(data);
-      } else {
-        setComfyError(data.message);
-      }
+      if (data.submitted) setComfyResult(data);
+      else setComfyError(data.message);
     } catch (err) {
       setComfyError(err.message || artText.errors.comfySubmit);
     } finally {
       setComfyLoading(false);
     }
+  }
+
+  async function handleImageGenerate() {
+    if (!imagePrompt.trim()) {
+      setImageError(artText.errors.emptyImagePrompt);
+      return;
+    }
+
+    setImageLoading(true);
+    setImageError("");
+    setImageResult(null);
+
+    try {
+      setImageResult(
+        await generateArtImage({
+          prompt: imagePrompt.trim(),
+          negative_prompt: negativePrompt.trim(),
+          style_profile_id: styleProfileId,
+          size: imageSize,
+          count: Number(imageCount),
+        }),
+      );
+    } catch (err) {
+      setImageError(err.message || artText.errors.imageGenerate);
+    } finally {
+      setImageLoading(false);
+    }
+  }
+
+  async function handleAnalyzeImage() {
+    if (!analysisFile) {
+      setAnalysisError(artText.errors.noImage);
+      return;
+    }
+
+    setAnalysisLoading(true);
+    setAnalysisError("");
+    setAnalysis(null);
+
+    try {
+      const data = await analyzeArtImage(analysisFile);
+      setAnalysis(data.analysis);
+      setProfileName(analysisFile.name.replace(/\.[^.]+$/, ""));
+    } catch (err) {
+      setAnalysisError(err.message || artText.errors.imageAnalyze);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
+  async function saveAnalysisAsProfile() {
+    if (!analysis || !profileName.trim()) return;
+
+    try {
+      await createStyleProfile({
+        name: profileName.trim(),
+        ...analysis,
+      });
+      await loadProfiles();
+    } catch (err) {
+      setProfileError(err.message);
+    }
+  }
+
+  async function removeProfile(profileId) {
+    try {
+      await deleteStyleProfile(profileId);
+      if (styleProfileId === profileId) setStyleProfileId("");
+      await loadProfiles();
+    } catch (err) {
+      setProfileError(err.message);
+    }
+  }
+
+  function handleAnalysisFile(file) {
+    if (analysisPreview) URL.revokeObjectURL(analysisPreview);
+    setAnalysisFile(file);
+    setAnalysis(null);
+    setAnalysisError("");
+    setAnalysisPreview(file ? URL.createObjectURL(file) : "");
   }
 
   function fillExample() {
@@ -103,12 +229,7 @@ function ArtPipelinePage() {
         <div className="art-form-grid">
           <label className="form-field span-2">
             <span>{artText.descriptionLabel}</span>
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={5}
-              placeholder={artText.descriptionPlaceholder}
-            />
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder={artText.descriptionPlaceholder} />
           </label>
 
           <SelectField label={artText.assetType} value={assetType} onChange={setAssetType} options={assetTypeValues} labels={artText.assetTypes} />
@@ -156,6 +277,104 @@ function ArtPipelinePage() {
           onSubmitComfy={handleSubmitComfy}
         />
       )}
+
+      <section className="panel">
+        <h2>{artText.imageGenerationTitle}</h2>
+        <div className="art-form-grid">
+          <label className="form-field span-2">
+            <span>{artText.imagePrompt}</span>
+            <textarea value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} rows={5} />
+          </label>
+          <label className="form-field span-2">
+            <span>{artText.output.negative}</span>
+            <textarea value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} rows={3} />
+          </label>
+          <label className="form-field">
+            <span>{artText.styleProfile}</span>
+            <select value={styleProfileId} onChange={(event) => setStyleProfileId(event.target.value)}>
+              <option value="">{artText.noStyleProfile}</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>{profile.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field">
+            <span>{artText.imageSize}</span>
+            <select value={imageSize} onChange={(event) => setImageSize(event.target.value)}>
+              <option value="1024x1024">1024x1024</option>
+              <option value="1024x1536">1024x1536</option>
+              <option value="1536x1024">1536x1024</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>{artText.imageCount}</span>
+            <input type="number" min="1" max="4" value={imageCount} onChange={(event) => setImageCount(event.target.value)} />
+          </label>
+        </div>
+        <div className="action-row">
+          <button onClick={handleImageGenerate} disabled={imageLoading}>
+            {imageLoading ? texts.common.generating : artText.generateImage}
+          </button>
+        </div>
+        {imageError && <div className="error-box">{imageError}</div>}
+        {imageResult && <GeneratedImages result={imageResult} />}
+      </section>
+
+      <section className="panel">
+        <h2>{artText.imageAnalyzeTitle}</h2>
+        <div className="art-form-grid">
+          <label className="form-field span-2">
+            <span>{artText.referenceImage}</span>
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleAnalysisFile(event.target.files?.[0] || null)} />
+          </label>
+          {analysisPreview && (
+            <div className="image-preview-card span-2">
+              <img src={analysisPreview} alt="" />
+            </div>
+          )}
+        </div>
+        <div className="action-row">
+          <button onClick={handleAnalyzeImage} disabled={analysisLoading}>
+            {analysisLoading ? texts.common.generating : artText.analyzeImage}
+          </button>
+        </div>
+        {analysisError && <div className="error-box">{analysisError}</div>}
+        {analysis && (
+          <AnalysisResult
+            analysis={analysis}
+            profileName={profileName}
+            setProfileName={setProfileName}
+            onSave={saveAnalysisAsProfile}
+            texts={texts}
+          />
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="section-header-row">
+          <h2>{artText.styleLibraryTitle}</h2>
+          <span>{profiles.length}</span>
+        </div>
+        {profileError && <div className="error-box">{profileError}</div>}
+        <div className="profile-list">
+          {profiles.map((profile) => (
+            <div className="profile-card" key={profile.id}>
+              <div>
+                <h3>{profile.name}</h3>
+                <p>{profile.style_spec_prompt}</p>
+                <div className="tag-list">
+                  {profile.palette.map((item) => <span key={item}>{item}</span>)}
+                </div>
+              </div>
+              <div className="action-row compact">
+                <button className="secondary-button" onClick={() => setStyleProfileId(profile.id)}>{artText.useProfile}</button>
+                <button className="secondary-button" onClick={() => removeProfile(profile.id)}>{texts.common.remove || "Remove"}</button>
+              </div>
+            </div>
+          ))}
+          {profiles.length === 0 && <div className="empty-state">{artText.noProfiles}</div>}
+        </div>
+      </section>
     </div>
   );
 }
@@ -173,6 +392,46 @@ function SelectField({ label, value, onChange, options, labels }) {
   );
 }
 
+function GeneratedImages({ result }) {
+  return (
+    <div className="generated-image-grid">
+      {result.images.map((image) => (
+        <div className="generated-image-card" key={image.path}>
+          <img src={`http://127.0.0.1:8010/api/files/download?path=${encodeURIComponent(image.path)}`} alt="" />
+          <button className="secondary-button" onClick={() => downloadFile(image.path)}>{image.file_name}</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AnalysisResult({ analysis, profileName, setProfileName, onSave, texts }) {
+  const artText = texts.art;
+  return (
+    <div className="result-block">
+      <div className="analysis-grid">
+        <OutputBlock title={artText.contentPrompt} text={analysis.content_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.styleSpecPrompt} text={analysis.style_spec_prompt} copyTextLabel={texts.common.copy} />
+        <OutputBlock title={artText.output.negative} text={analysis.negative_prompt} copyTextLabel={texts.common.copy} />
+        <div className="result-block">
+          <h3>{artText.productionSpec}</h3>
+          <p>{analysis.camera_view}</p>
+          <p>{analysis.resolution_advice}</p>
+          <p>{analysis.naming_advice}</p>
+          <div className="tag-list">
+            {analysis.palette.map((item) => <span key={item}>{item}</span>)}
+            {analysis.suitable_asset_types.map((item) => <span key={item}>{item}</span>)}
+          </div>
+        </div>
+      </div>
+      <div className="action-row">
+        <input value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder={artText.profileName} />
+        <button onClick={onSave}>{artText.saveProfile}</button>
+      </div>
+    </div>
+  );
+}
+
 function ArtPipelineResult({ result, texts, comfyResult, comfyLoading, comfyError, onSubmitComfy }) {
   const artText = texts.art;
 
@@ -182,7 +441,7 @@ function ArtPipelineResult({ result, texts, comfyResult, comfyLoading, comfyErro
         <div>
           <h2>{result.title}</h2>
           <p>
-            {formatAssetLabel(result.asset_type, artText)} · {formatStyleLabel(result.style, artText)} ·{" "}
+            {formatAssetLabel(result.asset_type, artText)} / {formatStyleLabel(result.style, artText)} /{" "}
             {formatEngineLabel(result.engine_target, texts.common)}
           </p>
         </div>
@@ -240,13 +499,6 @@ function ArtPipelineResult({ result, texts, comfyResult, comfyLoading, comfyErro
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="result-block">
-          <h3>{artText.output.productionNotes}</h3>
-          <ul className="note-list">
-            {result.production_notes.map((note) => <li key={note}>{note}</li>)}
-          </ul>
         </div>
 
         <div className="result-block">
@@ -310,15 +562,6 @@ function copyAll(result, artText) {
     "",
     `## ${artText.output.tags}`,
     result.style_tags.join(", "),
-    "",
-    `## ${artText.output.naming}`,
-    ...result.asset_naming_rules.map((rule) => `${rule.category}: ${rule.pattern} (${rule.example})`),
-    "",
-    `## ${artText.output.importGuide}`,
-    ...result.import_guide.map((step) => `${step.title}: ${step.detail}`),
-    "",
-    `## ${artText.workflow}`,
-    JSON.stringify(result.comfyui_workflow, null, 2),
   ].join("\n");
 
   copyText(text);

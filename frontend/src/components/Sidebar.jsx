@@ -5,9 +5,11 @@ import { useI18n } from "../i18n/I18nContext";
 const navKeys = [
   ["/", "dashboard"],
   ["/design", "design"],
+  ["/configs", "configs"],
   ["/code", "code"],
   ["/art", "art"],
   ["/assets", "assets"],
+  ["/audio", "audio"],
   ["/settings", "settings"],
 ];
 

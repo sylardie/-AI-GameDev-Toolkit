@@ -13,8 +13,8 @@ export async function generateSpritesheet(payload) {
   formData.append("end_time", String(payload.endTime));
   formData.append("extraction_mode", payload.extractionMode);
   formData.append("frame_interval", String(payload.frameInterval));
-  formData.append("dedupe_enabled", String(payload.dedupeEnabled));
-  formData.append("dedupe_threshold", String(payload.dedupeThreshold));
+  formData.append("dedupe_enabled", String(payload.dedupeEnabled ?? false));
+  formData.append("dedupe_threshold", String(payload.dedupeThreshold ?? 96));
   formData.append("transparent_enabled", "false");
   formData.append("transparent_color", "#000000");
   formData.append("transparent_tolerance", "0");

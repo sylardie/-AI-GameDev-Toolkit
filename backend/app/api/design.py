@@ -24,9 +24,9 @@ def design_generator_status():
     local_llm_enabled = settings.llm.enabled and bool(settings.llm.api_base_url and settings.llm.api_key)
     env_llm_enabled = LLM_ENABLED and bool(LLM_API_BASE_URL and LLM_API_KEY and LLM_MODEL)
     return {
-        "module": "Design Generator",
+        "module": "Config Generator",
         "status": "ready" if local_llm_enabled or env_llm_enabled else "needs_llm_config",
-        "message": "Real LLM design generation and JSON / Markdown / Excel export are available when LLM settings are configured.",
+        "message": "Real LLM configuration-table generation and JSON / Excel / Godot resource export are available when LLM settings are configured.",
         "llm_enabled": local_llm_enabled or env_llm_enabled,
     }
 
@@ -63,7 +63,8 @@ def generate_design(request: DesignGenerateRequest):
     return DesignGenerateResponse(
         output_id=output_info["output_id"],
         json_path=output_info["json_path"],
-        markdown_path=output_info["markdown_path"],
         excel_path=output_info["excel_path"],
+        excel_zip_path=output_info["excel_zip_path"],
+        godot_zip_path=output_info["godot_zip_path"],
         data=design_data,
     )

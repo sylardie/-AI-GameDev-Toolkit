@@ -215,6 +215,54 @@
     gap: 18px;
     margin: 22px 0;
   }
+
+  .config-manager-grid {
+    grid-template-columns: 0.85fr 1.45fr;
+    align-items: start;
+  }
+
+  .config-detail-panel {
+    min-height: 420px;
+  }
+
+  .compact-summary {
+    grid-template-columns: repeat(3, 1fr);
+    margin: 0 0 18px;
+  }
+
+  .inline-action-button {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-weight: 800;
+  }
+
+  .inline-action-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .inline-action-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .favorite-workbook-panel {
+    margin-top: 22px;
+  }
+
+  .favorite-workbook-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .favorite-workbook-list .saved-path-main:disabled {
+    opacity: 0.7;
+    cursor: wait;
+  }
   
   .module-card,
   .panel,
@@ -341,10 +389,36 @@
   
   .tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin: 20px 0;
     border-bottom: 1px solid #1e293b;
     padding-bottom: 12px;
+  }
+
+  .sheet-search {
+    margin: 8px 0 12px;
+  }
+
+  .sheet-tabs {
+    max-height: 172px;
+    overflow: auto;
+    align-content: flex-start;
+    margin-top: 0;
+    padding-right: 6px;
+  }
+
+  .sheet-tabs .tab-button {
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .compact-empty {
+    width: 100%;
+    margin-top: 0;
+    padding: 10px;
   }
 
   .table-wrap table {
@@ -486,9 +560,22 @@
     height: 44px;
     border-radius: 12px;
     border: 1px solid #334155;
-    background: #020617;
+    appearance: none;
+    background:
+      linear-gradient(45deg, transparent 50%, #93c5fd 50%),
+      linear-gradient(135deg, #93c5fd 50%, transparent 50%),
+      #020617;
+    background-position:
+      calc(100% - 20px) 18px,
+      calc(100% - 14px) 18px,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
     color: #e5e7eb;
-    padding: 0 12px;
+    padding: 0 42px 0 12px;
     outline: none;
   }
   
@@ -729,6 +816,66 @@
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 12px;
+  }
+
+  .config-path-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .saved-path-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .saved-path-list .block-header {
+    margin-bottom: 2px;
+  }
+
+  .saved-path-list .block-header span {
+    color: #94a3b8;
+    font-size: 13px;
+  }
+
+  .saved-path-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .saved-path-main {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.8);
+    color: #cbd5e1;
+    padding: 12px;
+    text-align: left;
+  }
+
+  .saved-path-main:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: rgba(14, 165, 233, 0.08);
+  }
+
+  .saved-path-main strong {
+    color: #e5e7eb;
+  }
+
+  .saved-path-main span {
+    color: #94a3b8;
+    word-break: break-all;
+  }
+
+  .workbook-search {
+    margin-bottom: 14px;
   }
 
   .search-row button {
@@ -1023,7 +1170,8 @@
   }
 
   .rule-row,
-  .guide-step {
+  .guide-step,
+  .issue-row {
     display: grid;
     gap: 6px;
     border: 1px solid #1e293b;
@@ -1033,8 +1181,21 @@
   }
 
   .rule-row strong,
-  .guide-step strong {
+  .guide-step strong,
+  .issue-row strong {
     color: #e5e7eb;
+  }
+
+  .issue-row.warning {
+    border-color: rgba(245, 158, 11, 0.38);
+  }
+
+  .issue-row.error {
+    border-color: rgba(239, 68, 68, 0.45);
+  }
+
+  .issue-row span {
+    color: #94a3b8;
   }
 
   .rule-row code {
@@ -1095,6 +1256,235 @@
 
   .asset-info span {
     color: #94a3b8;
+  }
+
+  .video-preview-panel {
+    display: grid;
+    gap: 12px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .video-preview-panel .block-header span {
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .video-preview-panel video {
+    width: 100%;
+    max-height: 520px;
+    object-fit: contain;
+    background: #000;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+  }
+
+  .drop-zone {
+    display: grid;
+    gap: 8px;
+    min-height: 128px;
+    place-items: center;
+    text-align: center;
+    padding: 22px;
+    background: rgba(2, 6, 23, 0.72);
+    border: 1px dashed #334155;
+    border-radius: 14px;
+    color: #94a3b8;
+    transition: 0.16s ease;
+  }
+
+  .drop-zone:hover,
+  .drop-zone.active {
+    border-color: #38bdf8;
+    background: rgba(14, 165, 233, 0.12);
+  }
+
+  .drop-zone input {
+    display: none;
+  }
+
+  .drop-zone strong {
+    color: #e5e7eb;
+    font-size: 18px;
+  }
+
+  .drop-zone span {
+    color: #bae6fd;
+    font-weight: 800;
+  }
+
+  .drop-zone small {
+    max-width: 640px;
+    line-height: 1.6;
+  }
+
+  .time-input-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .time-input-panel .block-header {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+
+  .hint-box {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    background: rgba(14, 165, 233, 0.08);
+    color: #bae6fd;
+    line-height: 1.65;
+  }
+
+  .audio-preview-card {
+    margin-top: 16px;
+    padding: 14px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+  }
+
+  .audio-preview-card h3 {
+    margin-top: 0;
+  }
+
+  .audio-preview-card audio {
+    width: 100%;
+  }
+
+  .compact-result-header {
+    align-items: flex-start;
+  }
+
+  .compact-output-meta {
+    min-width: 280px;
+  }
+
+  .table-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 18px 0;
+  }
+
+  .config-table-detail h4 {
+    margin: 18px 0 10px;
+    color: #bfdbfe;
+  }
+
+  .compact-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #cbd5e1;
+    line-height: 1.7;
+  }
+
+  .generated-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+  }
+
+  .generated-image-card,
+  .image-preview-card,
+  .profile-card {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .generated-image-card {
+    display: grid;
+    gap: 12px;
+  }
+
+  .generated-image-card img,
+  .image-preview-card img {
+    width: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    border-radius: 10px;
+    background:
+      linear-gradient(45deg, #1e293b 25%, transparent 25%),
+      linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1e293b 75%),
+      linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+    background-color: #020617;
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  }
+
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+
+  .profile-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .profile-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .profile-card h3 {
+    margin: 0 0 8px;
+  }
+
+  .profile-card p {
+    margin: 0 0 10px;
+    color: #cbd5e1;
+    line-height: 1.6;
+  }
+
+  .time-range-panel {
+    display: grid;
+    gap: 10px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .time-range-panel .block-header span {
+    color: #bae6fd;
+    font-weight: 800;
+  }
+
+  .dual-range {
+    display: grid;
+    gap: 6px;
+  }
+
+  .dual-range input {
+    height: 28px;
+    padding: 0;
+  }
+
+  .time-range-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .asset-workbench {

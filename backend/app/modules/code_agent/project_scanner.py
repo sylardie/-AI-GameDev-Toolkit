@@ -121,7 +121,9 @@ def scan_project(project_path: Path) -> ProjectScanResponse:
             total_size_bytes += size_bytes
 
     for category in ["scripts", "scenes", "resources", "configs", "others"]:
-        getattr(file_groups, category).sort(key=lambda item: item.relative_path.lower())
+        getattr(file_groups, category).sort(
+            key=lambda item: (-item.size_bytes, item.relative_path.lower())
+        )
 
     summary = ProjectScanSummary(
         total_files=sum(len(getattr(file_groups, category)) for category in ["scripts", "scenes", "resources", "configs", "others"]),

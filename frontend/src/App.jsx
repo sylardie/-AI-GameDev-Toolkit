@@ -3,9 +3,11 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import DesignGeneratorPage from "./pages/DesignGeneratorPage";
+import ConfigManagerPage from "./pages/ConfigManagerPage";
 import CodeAgentPage from "./pages/CodeAgentPage";
 import ArtPipelinePage from "./pages/ArtPipelinePage";
 import AssetToolsPage from "./pages/AssetToolsPage";
+import AudioToolsPage from "./pages/AudioToolsPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const router = createBrowserRouter([
@@ -22,6 +24,10 @@ const router = createBrowserRouter([
         element: <DesignGeneratorPage />,
       },
       {
+        path: "configs",
+        element: <ConfigManagerPage />,
+      },
+      {
         path: "code",
         element: <CodeAgentPage />,
       },
@@ -32,6 +38,10 @@ const router = createBrowserRouter([
       {
         path: "assets",
         element: <AssetToolsPage />,
+      },
+      {
+        path: "audio",
+        element: <AudioToolsPage />,
       },
       {
         path: "settings",

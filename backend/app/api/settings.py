@@ -1,6 +1,10 @@
 from fastapi import APIRouter
 
 from app.modules.art_pipeline.comfyui_client import ComfyUIError, test_comfyui_connection
+from app.modules.art_pipeline.image_provider_client import (
+    ImageProviderError,
+    test_image_provider_connection,
+)
 from app.modules.shared.llm_client import LLMError, chat_completion_json
 from app.modules.shared.settings_store import load_settings, public_settings, save_settings
 from app.schemas.settings import (
@@ -53,3 +57,17 @@ def test_comfyui():
         return ConnectionTestResponse(ok=False, message=str(exc))
 
     return ConnectionTestResponse(ok=True, message="ComfyUI connection succeeded.")
+
+
+@router.post("/image-provider/test", response_model=ConnectionTestResponse)
+def test_image_provider():
+    settings = load_settings()
+    if not settings.image_provider.enabled:
+        return ConnectionTestResponse(ok=False, message="Image Provider is disabled.")
+
+    try:
+        test_image_provider_connection(settings.image_provider)
+    except ImageProviderError as exc:
+        return ConnectionTestResponse(ok=False, message=str(exc))
+
+    return ConnectionTestResponse(ok=True, message="Image Provider connection succeeded.")

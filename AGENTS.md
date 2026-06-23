@@ -6,11 +6,13 @@ AI GameDev Toolkit
 
 ## Project Goal
 
-This project is a local web-based AI toolkit for game developers. It aims to support three workflows:
+This project is a local web-based AI toolkit for game developers. It aims to support practical workflows:
 
-1. Design Generator: generate structured game design data, GDD, JSON, Markdown, and Excel configuration files.
-2. Code Agent: scan and understand Godot / Unity projects, support code search, error analysis, and implementation suggestions.
-3. Art Pipeline: generate game art prompts, ComfyUI workflow payloads, asset naming rules, and Godot / Unity import guides.
+1. Config Generator: generate Unity / Godot friendly configuration table proposals, JSON, and Excel configuration files.
+2. Config Manager: scan and diagnose local Excel configuration folders.
+3. Code Agent: scan and understand Godot / Unity projects, support code search, error analysis, and implementation suggestions.
+4. Art Pipeline: generate game art style specifications, ComfyUI workflow payloads, asset naming rules, and Godot / Unity import guides.
+5. Asset Tools and Audio Tools: convert, inspect, and package common game assets locally without writing into external projects.
 
 This is a portfolio-quality AI application engineering project. The goal is not to build a generic chatbot, but to build a practical AI workflow platform for game development.
 
@@ -47,15 +49,20 @@ backend/
       config.py
     api/
       design.py
+      configs.py
       code.py
       art.py
+      audio.py
       files.py
     schemas/
       design.py
+      configs.py
       code.py
       art.py
+      audio.py
     modules/
       design_generator/
+      config_manager/
       code_agent/
       art_pipeline/
       shared/
@@ -75,20 +82,35 @@ docs/
 
 ## Current Module Status
 
-### Design Generator
+### Config Generator
 
 Already implemented:
 
 * Game idea input
-* Game template selection
-* Template configuration files
-* Generic design schema
+* Schema-first configuration table generation
 * Real LLM generation through local settings or backend environment configuration
 * JSON export
-* Markdown export
 * Excel export
+* Godot `.tres` resource ZIP export
 * File download API
 * Trace logging foundation
+
+Current direction:
+
+* Make Unity / Godot configuration tables the primary output.
+* Prefer structured table schemas and engine-ready exports over long-form GDD prose.
+
+### Config Manager
+
+MVP implemented:
+
+* Input a local Excel configuration folder path
+* Read-only recursive `.xlsx` scan
+* Ignore Excel temp files such as `~$*.xlsx`
+* Return workbook list, sheet list, row/column counts, headers, and diagnostics
+* Detect empty sheets, missing `id`, blank headers, and duplicate headers
+* Display scan summary, workbook list, sheet tabs, headers, and diagnostics in frontend
+* Do not modify Excel files
 
 ### Code Agent
 
@@ -118,6 +140,9 @@ Implemented:
 * Style tags
 * Asset naming rules
 * Godot / Unity import guide
+* Optional OpenAI-compatible image generation
+* Upload image and analyze reusable content / style prompts through a vision-capable LLM
+* Local Art Style Profile storage and reuse
 
 Expected future module:
 
@@ -125,6 +150,31 @@ Expected future module:
 * Optional ComfyUI API integration
 * Asset metadata export
 * Batch prompt variants
+
+### Asset Tools
+
+Implemented:
+
+* Video to spritesheet
+* Time range selection by manual seconds input
+* Video and image drag/drop upload
+* Frame preview and selected-frame export
+* Transparent background cleanup with edge softness
+* Single image solid-color background removal
+* Spritesheet preview
+* Godot / Unity import parameter display
+
+### Audio Tools
+
+MVP implemented:
+
+* Local audio upload with drag/drop
+* Browser audio preview
+* Start / end seconds clipping
+* Optional ffmpeg loudness normalization
+* WAV / OGG / MP3 export
+* Metadata JSON and ZIP download
+* Output only writes to `outputs/audio/`
 
 ## Development Rules
 
@@ -183,22 +233,21 @@ Before reporting completion:
 
 ## Current Recommended Next Task
 
-Perform a broad MVP integration pass:
+Continue product convergence toward practical game-development agent workflows:
 
 1. Backend:
 
-   * Review API status endpoints for all modules
-   * Keep local-only behavior documented
-   * Avoid adding external services during this pass
+   * Make Config Generator schema-first for Unity / Godot configuration tables
+   * Extend Config Manager with JSON export planning, field validation, and cross-table reference checks
+   * Keep local-only and read-only behavior documented
 
 2. Frontend:
 
-   * Update Dashboard copy to reflect the three working workflows
-   * Ensure module descriptions are current
-   * Keep changes broad and practical
+   * Keep Config Manager usable and close to Code Agent interaction patterns
+   * Shape Art Pipeline around Art Style Profiles and asset production specifications
+   * Prefer tables, reports, cards, and import parameters over long text
 
 3. Safety:
 
-   * No deep UI polish yet
    * No automatic writes to external projects
-   * No new external image generation dependency
+   * No binding to a specific online image API until the workflow is concrete

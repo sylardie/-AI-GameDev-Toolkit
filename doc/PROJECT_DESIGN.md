@@ -2,236 +2,195 @@
 
 ## 1. Product Positioning
 
-AI GameDev Toolkit is a local web-based AI workflow platform for game developers.
+AI GameDev Toolkit is a local web-based AI workflow platform for Godot / Unity developers.
 
-It is designed as a portfolio project for AI application engineering. The goal is to show practical engineering ability, not just prompt writing.
+The project is being narrowed from a generic AI toolbox into a practical game-development agent workflow. The product should convert broad AI answers into structured, engine-ready outputs: configuration tables, validation reports, project diagnostics, import settings, asset specifications, and implementation guidance.
 
-The platform covers three workflows:
-
-1. Game design generation
-2. Game project code assistance
-3. Game art production pipeline
-
-## 2. Core Product Idea
-
-The tool should support a full game development workflow:
+## 2. Core Workflow
 
 ```text
 Game idea
-↓
-Structured GDD and configuration data
-↓
-Export JSON / Markdown / Excel
-↓
-Generate art prompts and asset guides
-↓
-Scan Godot / Unity project
-↓
-Assist with code search, error analysis, and implementation suggestions
+-> schema-first configuration table proposal
+-> JSON / Excel export
+-> scan existing Excel config folder
+-> scan Godot / Unity project
+-> prepare art style profiles and engine-ready assets
+-> produce structured, developer-actionable guidance
 ```
 
 ## 3. Modules
 
-### 3.1 Design Generator
+### 3.1 Config Generator
+
+Formerly Design Generator.
 
 Purpose:
 
-Generate structured game design data from a short game idea and a selected game type template.
+Generate structured Unity / Godot configuration table proposals from a short game idea and a selected template.
 
-Implemented features:
+Current behavior:
 
-* Game idea input
-* Game type template selection
-* Template JSON configuration
-* Generic schema:
+* Uses a configured LLM.
+* Validates model output through Pydantic.
+* Exports JSON, Markdown, and Excel.
+* Keeps the previous design notes view for continuity.
 
-  * systems
-  * resources
-  * items
-  * entities
-  * progression
-  * tasks
-  * levels
-  * balance_notes
-* JSON export
-* Markdown export
-* Excel export
-* File download API
-* LLM client foundation
-* Trace logging foundation
+Direction:
 
-Design principle:
+* Make configuration tables the primary result.
+* Prefer table schema, field type, default value, enum, reference, and note fields over long design prose.
+* Keep GDD-style text as supporting context, not the main output.
 
-The schema must stay generic. Do not hardcode one specific game concept such as planets, stars, lighthouse, cards, or RPG characters at the schema level. Specific game concepts should only appear in generated content, not in core schema names.
+Recommended default table families:
 
-### 3.2 Code Agent
+* Items
+* Entities
+* Levels
+* Skills
+* Rewards
+* Quests
+* Economy
+
+### 3.2 Config Manager
+
+Purpose:
+
+Help Unity / Godot developers understand and audit local Excel configuration folders.
+
+MVP features:
+
+* Input local Excel folder path.
+* Recursively scan `.xlsx` files.
+* Ignore temporary Excel files such as `~$*.xlsx`.
+* Return workbook list, sheet list, row count, column count, headers, and diagnostics.
+* Detect basic issues:
+  * empty sheet / missing usable header row
+  * missing `id` column
+  * blank header cells
+  * duplicate headers
+* Read-only. It does not modify Excel files.
+
+Future features:
+
+* Export selected sheets to JSON.
+* Field type validation.
+* Cross-table reference checks.
+* Enum consistency checks.
+* Confirmed write-back or generated fixes only after explicit user confirmation.
+
+### 3.3 Code Agent
 
 Purpose:
 
 Help developers understand and inspect Godot / Unity projects.
 
-MVP features:
+Implemented:
 
-* Input local project path
-* Detect Godot or Unity project
-* Scan file tree
-* Classify:
+* Project type detection.
+* Read-only file scan.
+* File preview.
+* Project search.
+* Script structure extraction.
+* Error-log analysis.
 
-  * scripts
-  * scenes
-  * resources
-  * configs
-  * others
-* Show project summary
-* Show file lists
+Direction:
 
-Future features:
-
-* Read selected script file
-* Extract classes and functions
-* Code search
-* Error analysis
-* Generate implementation suggestions
-* Generate README / resource manifest
-* Optional diff generation with user confirmation
+AI output should be structured as executable developer guidance: suspected cause, related file, exact location, recommended fix steps, and risk notes.
 
 Safety principle:
 
-The first version must only read files. It must not modify external game project files.
+The MVP only reads files. It must not modify external game project files.
 
-### 3.3 Art Pipeline
+### 3.4 Art Pipeline
 
 Purpose:
 
-Support AI-assisted game art production.
+Support consistent game art production.
 
-Future MVP features:
+Current behavior:
 
-* Input character / item / scene description
-* Generate positive prompt
-* Generate negative prompt
-* Generate style tags
-* Generate naming rules
-* Generate Godot / Unity import guide
+* Generates prompt payloads, naming rules, import notes, and ComfyUI workflow payloads.
+* ComfyUI is optional.
 
-Future advanced features:
+Direction:
 
-* ComfyUI API integration
-* Workflow template management
-* Batch image generation
-* Asset metadata
-* Sprite sheet processing
+Add an Art Style Profile concept:
+
+* style summary
+* palette
+* line / rendering rules
+* camera / perspective
+* resolution and transparency rules
+* naming convention
+* negative constraints
+* asset-type-specific notes for characters, icons, items, tilesets, UI, and sprites
+
+Online image provider configuration is allowed, but actual provider integration should remain abstract until a concrete workflow is chosen.
+
+### 3.5 Asset Tools
+
+Purpose:
+
+Prepare source media into engine-ready assets.
+
+Implemented:
+
+* Video to spritesheet.
+* Frame preview and selected-frame export.
+* Post-extraction transparent background processing.
+* Single image solid-color background removal.
+* Spritesheet preview and Godot / Unity import settings.
+
+Current direction:
+
+* Keep FPS, max frames, columns, frame size, transparent background, edge softness, preview, and import parameters.
+* Remove low-value similar-frame dedupe UI from the first practical workflow.
+* Use intuitive time-range controls instead of raw start/end number fields.
 
 ## 4. Architecture
 
-### Frontend
+Frontend:
 
-React + Vite + React Router.
+* React
+* Vite
+* React Router
+* Native CSS
+* Lightweight local i18n
 
-Pages:
+Backend:
 
-* Dashboard
-* Design Generator
-* Code Agent
-* Art Pipeline
-* Settings
+* FastAPI
+* Pydantic
+* openpyxl
+* requests
+* Pillow / imageio for local asset tools
 
-### Backend
-
-FastAPI.
-
-Current API groups:
+API groups:
 
 * `/api/design`
+* `/api/configs`
 * `/api/code`
 * `/api/art`
+* `/api/assets`
 * `/api/files`
-
-Future API groups may include:
-
 * `/api/settings`
-* `/api/traces`
 
-### Storage
-
-Local files:
+Storage:
 
 ```text
+backend/app/data/config/
 backend/app/data/outputs/
 backend/app/data/traces/
 ```
 
-Generated files should not be committed to Git by default.
+Generated files, traces, local settings, and API keys should not be committed.
 
-## 5. Design Generator Current Data Flow
+## 5. Constraints
 
-```text
-User idea + selected template
-↓
-Load template config
-↓
-Generate design data through a configured LLM
-↓
-Validate with Pydantic
-↓
-Export JSON / Markdown / Excel
-↓
-Return file paths to frontend
-↓
-Allow user to download generated files
-```
-
-## 6. Code Agent Expected Data Flow
-
-```text
-User enters local project path
-↓
-Backend validates path
-↓
-Detect project type
-↓
-Scan files and ignore heavy/generated folders
-↓
-Classify files
-↓
-Return project summary and file lists
-↓
-Frontend displays project overview
-```
-
-## 7. Important Constraints
-
-* This is a local tool. Do not upload user project files to a server.
-* API keys must stay in backend `.env`.
+* This is a local tool.
+* API keys must stay in backend local settings or backend environment variables.
 * Frontend must never contain API keys.
-* Code Agent must not modify files in MVP.
+* Code Agent and Config Manager are read-only in the MVP.
 * File downloads must be limited to generated output files.
-* Keep schemas generic and reusable.
-
-## 8. Recommended Next Milestone
-
-Implement Code Agent MVP.
-
-Expected backend files:
-
-```text
-backend/app/schemas/code.py
-backend/app/modules/code_agent/project_detector.py
-backend/app/modules/code_agent/project_scanner.py
-backend/app/api/code.py
-```
-
-Expected frontend files:
-
-```text
-frontend/src/api/codeApi.js
-frontend/src/pages/CodeAgentPage.jsx
-```
-
-Acceptance criteria:
-
-* User can input a Godot project root path and scan it.
-* User can input a Unity project root path and scan it.
-* Backend returns project type and categorized files.
-* Frontend displays summary and file lists.
-* Existing Design Generator still works.
+* Do not write into external Godot / Unity projects without explicit user confirmation.
+* Define target output schemas before calling AI.

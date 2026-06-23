@@ -30,6 +30,13 @@ export async function testComfyConnection() {
   return handleResponse(response);
 }
 
+export async function testImageProviderConnection() {
+  const response = await fetch(`${API_BASE_URL}/api/settings/image-provider/test`, {
+    method: "POST",
+  });
+  return handleResponse(response);
+}
+
 async function handleResponse(response) {
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
