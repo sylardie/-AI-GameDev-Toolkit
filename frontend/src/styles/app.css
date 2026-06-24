@@ -76,7 +76,21 @@
   .nav-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 18px;
+  }
+
+  .nav-group {
+    display: grid;
+    gap: 6px;
+  }
+
+  .nav-group-title {
+    color: #475569;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
   
   .nav-item {
@@ -101,6 +115,33 @@
   
   .nav-label {
     font-weight: 700;
+  }
+
+  .nav-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .nav-capability {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 3px 7px;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .nav-capability.ai {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .nav-capability.local {
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.26);
   }
   
   .nav-desc {
@@ -217,12 +258,36 @@
   }
 
   .config-manager-grid {
-    grid-template-columns: 0.85fr 1.45fr;
+    display: grid;
+    grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.45fr);
+    gap: 22px;
     align-items: start;
+  }
+
+  .config-browser-column {
+    min-width: 0;
+  }
+
+  .config-browser-column + .config-browser-column {
+    border-left: 1px solid #1e293b;
+    padding-left: 22px;
   }
 
   .config-detail-panel {
     min-height: 420px;
+  }
+
+  .config-workbook-list {
+    max-height: 720px;
+    overflow: auto;
+    padding-right: 6px;
+  }
+
+  .selected-workbook-path {
+    margin: -8px 0 0;
+    max-width: 520px;
+    font-size: 13px;
+    word-break: break-all;
   }
 
   .compact-summary {
@@ -763,6 +828,82 @@
     gap: 16px;
   }
 
+  .comfy-setup-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 18px 0;
+  }
+
+  .comfy-setup-step {
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 13px;
+  }
+
+  .comfy-setup-step > span {
+    display: grid;
+    place-items: center;
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    color: #bae6fd;
+    background: rgba(14, 165, 233, 0.14);
+    border-radius: 50%;
+    font-weight: 800;
+  }
+
+  .comfy-setup-step strong {
+    color: #e5e7eb;
+  }
+
+  .comfy-setup-step p {
+    margin: 5px 0 0;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .comfy-workflow-card {
+    margin-top: 18px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  .comfy-workflow-card .block-header span {
+    color: #93c5fd;
+    font-size: 13px;
+  }
+
+  .workflow-file-input {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    padding: 10px 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .workflow-file-input input {
+    display: none;
+  }
+
+  .workflow-file-name {
+    display: inline-block;
+    margin: 0 0 0 12px;
+  }
+
+  .comfy-mapping-title {
+    margin-top: 20px;
+  }
+
   .section-header-row,
   .result-actions {
     display: flex;
@@ -940,8 +1081,8 @@
     gap: 12px;
   }
 
-  .config-path-row {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+  .config-scan-actions {
+    margin-top: 16px;
   }
 
   .saved-path-list {
@@ -968,6 +1109,23 @@
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 10px;
     align-items: center;
+  }
+
+  .saved-path-row .inline-action-button {
+    min-width: 76px;
+    min-height: 42px;
+  }
+
+  .danger-action-button {
+    color: #fca5a5 !important;
+    background: rgba(127, 29, 29, 0.24) !important;
+    border: 1px solid rgba(248, 113, 113, 0.24) !important;
+  }
+
+  .danger-action-button:hover {
+    color: #fecaca !important;
+    background: rgba(153, 27, 27, 0.34) !important;
+    border-color: rgba(248, 113, 113, 0.42) !important;
   }
 
   .saved-path-main {

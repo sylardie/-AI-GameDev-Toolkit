@@ -19,6 +19,8 @@ import AiRequiredNotice from "../components/AiRequiredNotice";
 import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/I18nContext";
 
+const SAVED_PROJECT_PATHS_KEY = "ai-gamedev-code-agent-project-paths";
+
 function CodeAgentPage() {
   const { texts } = useI18n();
   const codeText = texts.code;
@@ -26,6 +28,7 @@ function CodeAgentPage() {
   const llmReady = isLlmReady(settings);
   const [activeTab, setActiveTab] = useState("scan");
   const [projectPath, setProjectPath] = useState("");
+  const [savedProjects, setSavedProjects] = useState(loadSavedProjects);
   const [scanResult, setScanResult] = useState(null);
   const [activeGroup, setActiveGroup] = useState("scripts");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -46,15 +49,18 @@ function CodeAgentPage() {
   const [errorAnalysisError, setErrorAnalysisError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  async function handleScan() {
-    if (!projectPath.trim()) {
+  async function scanPath(targetPath) {
+    const value = targetPath.trim();
+    if (!value) {
       setError(codeText.errors.emptyPath);
       return;
     }
 
     setLoading(true);
     setError("");
+    setMessage("");
     setScanResult(null);
     setSelectedFile(null);
     setFilePreview(null);
@@ -68,7 +74,8 @@ function CodeAgentPage() {
     setErrorAnalysisError("");
 
     try {
-      const data = await scanProject(projectPath.trim());
+      const data = await scanProject(value);
+      setProjectPath(value);
       setScanResult(data);
       setActiveGroup("scripts");
       setActiveTab("files");
@@ -79,11 +86,41 @@ function CodeAgentPage() {
     }
   }
 
+  async function handleScan() {
+    await scanPath(projectPath);
+  }
+
   async function handleChooseProjectFolder() {
     const selectedPath = await chooseFolder("Choose Unity or Godot Project Folder");
     if (!selectedPath) return;
     setProjectPath(selectedPath);
     setError("");
+  }
+
+  function saveCurrentProject() {
+    const value = projectPath.trim();
+    if (!value) {
+      setError(codeText.errors.emptyPath);
+      return;
+    }
+
+    const item = {
+      id: value.toLowerCase(),
+      name: derivePathName(value),
+      path: value,
+      savedAt: new Date().toISOString(),
+    };
+    const next = [item, ...savedProjects.filter((project) => project.id !== item.id)].slice(0, 20);
+    setSavedProjects(next);
+    window.localStorage.setItem(SAVED_PROJECT_PATHS_KEY, JSON.stringify(next));
+    setError("");
+    setMessage(codeText.pathSaved);
+  }
+
+  function removeSavedProject(id) {
+    const next = savedProjects.filter((project) => project.id !== id);
+    setSavedProjects(next);
+    window.localStorage.setItem(SAVED_PROJECT_PATHS_KEY, JSON.stringify(next));
   }
 
   async function handleShowFileInFolder(file) {
@@ -216,8 +253,42 @@ function CodeAgentPage() {
           <button onClick={handleScan} disabled={loading}>
             {loading ? codeText.scanning : codeText.scan}
           </button>
+          <button className="secondary-button" onClick={saveCurrentProject} disabled={loading}>
+            {codeText.savePath}
+          </button>
         </div>
 
+        {savedProjects.length > 0 && (
+          <div className="saved-path-list">
+            <div className="block-header">
+              <h3>{codeText.savedProjects}</h3>
+              <span>{codeText.savedProjectsHint}</span>
+            </div>
+            {savedProjects.map((project) => (
+              <div className="saved-path-row" key={project.id}>
+                <button className="saved-path-main" onClick={() => setProjectPath(project.path)}>
+                  <strong>{project.name}</strong>
+                  <span>{project.path}</span>
+                </button>
+                <button
+                  className="secondary-button inline-action-button"
+                  onClick={() => scanPath(project.path)}
+                  disabled={loading}
+                >
+                  {codeText.scanSaved}
+                </button>
+                <button
+                  className="secondary-button inline-action-button danger-action-button"
+                  onClick={() => removeSavedProject(project.id)}
+                >
+                  {codeText.removePath}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {message && <div className="scan-note">{message}</div>}
         {error && <div className="error-box">{error}</div>}
       </section>
       )}
@@ -391,6 +462,21 @@ function SummaryCard({ label, value }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function loadSavedProjects() {
+  try {
+    const stored = window.localStorage.getItem(SAVED_PROJECT_PATHS_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function derivePathName(path) {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  return normalized.split("/").filter(Boolean).pop() || path;
 }
 
 function FileList({ files, selectedFile, onSelectFile, onShowInFolder, texts }) {

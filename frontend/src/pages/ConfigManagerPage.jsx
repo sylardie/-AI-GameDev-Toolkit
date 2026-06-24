@@ -232,8 +232,7 @@ function ConfigManagerPage() {
           onChange={setActiveTab}
           tabs={[
             { id: "scan", label: configText.scanTitle },
-            { id: "workbooks", label: configText.workbooks },
-            { id: "details", label: configText.sheetDetails },
+            { id: "workbooks", label: configText.browser },
           ]}
         />
       </section>
@@ -241,23 +240,24 @@ function ConfigManagerPage() {
       {activeTab === "scan" && (
       <section className="panel">
         <h2>{configText.scanTitle}</h2>
-        <div className="search-row config-path-row">
-          <label className="form-field">
-            <span>{configText.pathLabel}</span>
-            <input
-              value={path}
-              onChange={(event) => setPath(event.target.value)}
-              placeholder={configText.pathPlaceholder}
-            />
-          </label>
-          <button onClick={handleScan} disabled={loading}>
-            {loading ? configText.scanning : configText.scan}
-          </button>
+        <label className="form-field">
+          <span>{configText.pathLabel}</span>
+          <input
+            value={path}
+            onChange={(event) => setPath(event.target.value)}
+            placeholder={configText.pathPlaceholder}
+          />
+        </label>
+
+        <div className="action-row config-scan-actions">
           {isDesktopRuntime() && (
             <button className="secondary-button" onClick={handleChooseFolder} disabled={loading}>
               {configText.chooseFolder}
             </button>
           )}
+          <button onClick={handleScan} disabled={loading}>
+            {loading ? configText.scanning : configText.scan}
+          </button>
           <button className="secondary-button" onClick={saveCurrentPath} disabled={loading}>
             {configText.savePath}
           </button>
@@ -274,10 +274,17 @@ function ConfigManagerPage() {
                   <strong>{item.name}</strong>
                   <span>{item.path}</span>
                 </button>
-                <button className="secondary-button" onClick={() => scanPath(item.path)} disabled={loading}>
+                <button
+                  className="secondary-button inline-action-button"
+                  onClick={() => scanPath(item.path)}
+                  disabled={loading}
+                >
                   {configText.scanSaved}
                 </button>
-                <button className="secondary-button" onClick={() => removeSavedPath(item.id)}>
+                <button
+                  className="secondary-button inline-action-button danger-action-button"
+                  onClick={() => removeSavedPath(item.id)}
+                >
                   {configText.removePath}
                 </button>
               </div>
@@ -301,10 +308,17 @@ function ConfigManagerPage() {
                     <strong>{workbook.name}</strong>
                     <span>{workbook.path}</span>
                   </button>
-                  <button className="secondary-button" onClick={() => openFavoriteWorkbook(workbook)} disabled={opening}>
+                  <button
+                    className="secondary-button inline-action-button"
+                    onClick={() => openFavoriteWorkbook(workbook)}
+                    disabled={opening}
+                  >
                     {configText.openInExcel}
                   </button>
-                  <button className="secondary-button" onClick={() => removeFavoriteWorkbook(workbook.id)}>
+                  <button
+                    className="secondary-button inline-action-button danger-action-button"
+                    onClick={() => removeFavoriteWorkbook(workbook.id)}
+                  >
                     {configText.removePath}
                   </button>
                 </div>
@@ -328,122 +342,127 @@ function ConfigManagerPage() {
 
           {activeTab === "workbooks" && (
             <section className="panel">
-              <h2>{configText.workbooks}</h2>
-              <label className="form-field workbook-search">
-                <span>{configText.searchFiles}</span>
-                <input
-                  value={workbookQuery}
-                  onChange={(event) => setWorkbookQuery(event.target.value)}
-                  placeholder={configText.searchPlaceholder}
-                />
-              </label>
-              <div className="file-list">
-                {filteredWorkbooks.map((workbook) => (
-                  <button
-                    className={selectedWorkbook?.relative_path === workbook.relative_path ? "file-row active" : "file-row"}
-                    key={workbook.relative_path}
-                    onClick={() => selectWorkbook(workbook)}
-                  >
-                    <div>
-                      <strong>{workbook.name}</strong>
-                      <span>{workbook.relative_path}</span>
-                    </div>
-                    <code>
-                      {workbook.sheet_count} / {countWorkbookIssues(workbook)}
-                    </code>
-                  </button>
-                ))}
-                {filteredWorkbooks.length === 0 && (
-                  <div className="empty-state">{configText.noMatches}</div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {activeTab === "details" && (
-            <section className="panel config-detail-panel">
-              <div className="section-header-row">
-                <h2>{configText.sheetDetails}</h2>
-                {selectedWorkbook && (
-                  <div className="inline-action-group">
-                    <button
-                      className="secondary-button inline-action-button"
-                      onClick={() => saveFavoriteWorkbook(selectedWorkbook)}
-                      disabled={!selectedWorkbook.openable}
-                      title={selectedWorkbook.openable ? configText.favoriteWorkbook : configText.openUnavailable}
-                    >
-                      {configText.favoriteWorkbook}
-                    </button>
-                    <button
-                      className="secondary-button inline-action-button"
-                      onClick={handleOpenWorkbook}
-                      disabled={opening || !selectedWorkbook.openable}
-                      title={selectedWorkbook.openable ? configText.openInExcel : configText.openUnavailable}
-                    >
-                      {opening ? configText.opening : configText.openInExcel}
-                    </button>
-                  </div>
-                )}
-              </div>
-              {selectedWorkbook && selectedSheet ? (
-                <>
-                  <label className="form-field sheet-search">
-                    <span>{configText.searchSheets}</span>
+              <div className="config-manager-grid">
+                <div className="config-browser-column">
+                  <h2>{configText.workbooks}</h2>
+                  <label className="form-field workbook-search">
+                    <span>{configText.searchFiles}</span>
                     <input
-                      value={sheetQuery}
-                      onChange={(event) => setSheetQuery(event.target.value)}
-                      placeholder={configText.searchSheetsPlaceholder}
+                      value={workbookQuery}
+                      onChange={(event) => setWorkbookQuery(event.target.value)}
+                      placeholder={configText.searchPlaceholder}
                     />
                   </label>
-                  <div className="tabs sheet-tabs">
-                    {filteredSheets.map((sheet) => (
+                  <div className="file-list config-workbook-list">
+                    {filteredWorkbooks.map((workbook) => (
                       <button
-                        className={selectedSheet.name === sheet.name ? "tab-button active" : "tab-button"}
-                        key={sheet.name}
-                        onClick={() => setSelectedSheetName(sheet.name)}
+                        className={selectedWorkbook?.relative_path === workbook.relative_path ? "file-row active" : "file-row"}
+                        key={workbook.relative_path}
+                        onClick={() => selectWorkbook(workbook)}
                       >
-                        {sheet.name}
+                        <div>
+                          <strong>{workbook.name}</strong>
+                          <span>{workbook.relative_path}</span>
+                        </div>
+                        <code>
+                          {workbook.sheet_count} / {countWorkbookIssues(workbook)}
+                        </code>
                       </button>
                     ))}
-                    {filteredSheets.length === 0 && (
-                      <div className="empty-state compact-empty">{configText.noSheetMatches}</div>
+                    {filteredWorkbooks.length === 0 && (
+                      <div className="empty-state">{configText.noMatches}</div>
                     )}
                   </div>
+                </div>
 
-                  <div className="summary-grid compact-summary">
-                    <SummaryCard label={configText.rows} value={selectedSheet.row_count} />
-                    <SummaryCard label={configText.columns} value={selectedSheet.column_count} />
-                    <SummaryCard label={configText.summary.issues} value={selectedSheet.issues.length} />
-                  </div>
-
-                  <div className="result-block">
-                    <h3>{configText.headers}</h3>
-                    <div className="tag-list">
-                      {selectedSheet.headers.map((header, index) => (
-                        <span key={`${header}-${index}`}>{header || `(blank ${index + 1})`}</span>
-                      ))}
+                <div className="config-detail-panel config-browser-column">
+                  <div className="section-header-row">
+                    <div>
+                      <h2>{configText.sheetDetails}</h2>
+                      {selectedWorkbook && <p className="selected-workbook-path">{selectedWorkbook.relative_path}</p>}
                     </div>
-                  </div>
-
-                  <div className="result-block">
-                    <h3>{configText.diagnostics}</h3>
-                    {selectedSheet.issues.length > 0 ? (
-                      <div className="rule-list">
-                        {selectedSheet.issues.map((issue, index) => (
-                          <div className={`issue-row ${issue.severity}`} key={`${issue.code}-${index}`}>
-                            <strong>{configText.issueCodes[issue.code] || issue.code}</strong>
-                            <span>{issue.message}</span>
-                          </div>
-                        ))}
+                    {selectedWorkbook && (
+                      <div className="inline-action-group">
+                        <button
+                          className="secondary-button inline-action-button"
+                          onClick={() => saveFavoriteWorkbook(selectedWorkbook)}
+                          disabled={!selectedWorkbook.openable}
+                          title={selectedWorkbook.openable ? configText.favoriteWorkbook : configText.openUnavailable}
+                        >
+                          {configText.favoriteWorkbook}
+                        </button>
+                        <button
+                          className="secondary-button inline-action-button"
+                          onClick={handleOpenWorkbook}
+                          disabled={opening || !selectedWorkbook.openable}
+                          title={selectedWorkbook.openable ? configText.openInExcel : configText.openUnavailable}
+                        >
+                          {opening ? configText.opening : configText.openInExcel}
+                        </button>
                       </div>
-                    ) : (
-                      <p>{configText.noIssues}</p>
                     )}
                   </div>
-                </>
-              ) : (
-                <div className="empty-state">{configText.noWorkbook}</div>
-              )}
+                  {selectedWorkbook && selectedSheet ? (
+                    <>
+                      <label className="form-field sheet-search">
+                        <span>{configText.searchSheets}</span>
+                        <input
+                          value={sheetQuery}
+                          onChange={(event) => setSheetQuery(event.target.value)}
+                          placeholder={configText.searchSheetsPlaceholder}
+                        />
+                      </label>
+                      <div className="tabs sheet-tabs">
+                        {filteredSheets.map((sheet) => (
+                          <button
+                            className={selectedSheet.name === sheet.name ? "tab-button active" : "tab-button"}
+                            key={sheet.name}
+                            onClick={() => setSelectedSheetName(sheet.name)}
+                          >
+                            {sheet.name}
+                          </button>
+                        ))}
+                        {filteredSheets.length === 0 && (
+                          <div className="empty-state compact-empty">{configText.noSheetMatches}</div>
+                        )}
+                      </div>
+
+                      <div className="summary-grid compact-summary">
+                        <SummaryCard label={configText.rows} value={selectedSheet.row_count} />
+                        <SummaryCard label={configText.columns} value={selectedSheet.column_count} />
+                        <SummaryCard label={configText.summary.issues} value={selectedSheet.issues.length} />
+                      </div>
+
+                      <div className="result-block">
+                        <h3>{configText.headers}</h3>
+                        <div className="tag-list">
+                          {selectedSheet.headers.map((header, index) => (
+                            <span key={`${header}-${index}`}>{header || `(blank ${index + 1})`}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="result-block">
+                        <h3>{configText.diagnostics}</h3>
+                        {selectedSheet.issues.length > 0 ? (
+                          <div className="rule-list">
+                            {selectedSheet.issues.map((issue, index) => (
+                              <div className={`issue-row ${issue.severity}`} key={`${issue.code}-${index}`}>
+                                <strong>{configText.issueCodes[issue.code] || issue.code}</strong>
+                                <span>{issue.message}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p>{configText.noIssues}</p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="empty-state">{configText.noWorkbook}</div>
+                  )}
+                </div>
+              </div>
             </section>
           )}
         </>

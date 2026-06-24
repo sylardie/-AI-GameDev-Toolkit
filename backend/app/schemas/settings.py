@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Dict, Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,11 @@ class ComfyUISettings(BaseModel):
     steps: int = Field(default=20, ge=1, le=100)
     cfg: float = Field(default=7.0, ge=1.0, le=30.0)
     seed: int = Field(default=-1, ge=-1)
+    workflow: Dict[str, Any] = Field(default_factory=dict)
+    positive_prompt_node_id: str = ""
+    negative_prompt_node_id: str = ""
+    sampler_node_id: str = ""
+    latent_node_id: str = ""
 
 
 class ImageProviderSettings(BaseModel):

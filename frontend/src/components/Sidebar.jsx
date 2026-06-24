@@ -2,15 +2,31 @@ import { NavLink } from "react-router-dom";
 
 import { useI18n } from "../i18n/I18nContext";
 
-const navKeys = [
-  ["/", "dashboard"],
-  ["/design", "design"],
-  ["/configs", "configs"],
-  ["/code", "code"],
-  ["/art", "art"],
-  ["/assets", "assets"],
-  ["/audio", "audio"],
-  ["/settings", "settings"],
+const navGroups = [
+  {
+    key: "overview",
+    items: [["/", "dashboard", "neutral"]],
+  },
+  {
+    key: "localTools",
+    items: [
+      ["/configs", "configs", "local"],
+      ["/code", "code", "local"],
+      ["/assets", "assets", "local"],
+      ["/audio", "audio", "local"],
+    ],
+  },
+  {
+    key: "aiWorkflows",
+    items: [
+      ["/design", "design", "ai"],
+      ["/art", "art", "ai"],
+    ],
+  },
+  {
+    key: "system",
+    items: [["/settings", "settings", "neutral"]],
+  },
 ];
 
 function Sidebar() {
@@ -27,23 +43,35 @@ function Sidebar() {
       </div>
 
       <nav className="nav-list">
-        {navKeys.map(([path, key]) => {
-          const [label, desc] = texts.sidebar.nav[key];
+        {navGroups.map((group) => (
+          <div className="nav-group" key={group.key}>
+            <div className="nav-group-title">{texts.sidebar.groups[group.key]}</div>
+            {group.items.map(([path, key, capability]) => {
+              const [label, desc] = texts.sidebar.nav[key];
 
-          return (
-            <NavLink
-              key={path}
-              to={path}
-              end={path === "/"}
-              className={({ isActive }) =>
-                isActive ? "nav-item active" : "nav-item"
-              }
-            >
-              <div className="nav-label">{label}</div>
-              <div className="nav-desc">{desc}</div>
-            </NavLink>
-          );
-        })}
+              return (
+                <NavLink
+                  key={path}
+                  to={path}
+                  end={path === "/"}
+                  className={({ isActive }) =>
+                    isActive ? "nav-item active" : "nav-item"
+                  }
+                >
+                  <div className="nav-label-row">
+                    <div className="nav-label">{label}</div>
+                    {capability !== "neutral" && (
+                      <span className={`nav-capability ${capability}`}>
+                        {texts.sidebar.capabilities[capability]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="nav-desc">{desc}</div>
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="sidebar-footer">

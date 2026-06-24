@@ -84,15 +84,20 @@ def submit_art_pipeline_to_comfyui(request: ArtPromptGenerateRequest):
             submitted=False,
             message=str(exc),
         )
-    workflow = build_basic_txt2img_workflow(
-        request,
-        art_result.positive_prompt,
-        art_result.negative_prompt,
-        settings.comfyui,
-    )
-
     try:
+        workflow = build_basic_txt2img_workflow(
+            request,
+            art_result.positive_prompt,
+            art_result.negative_prompt,
+            settings.comfyui,
+        )
         prompt_id = submit_workflow(settings.comfyui, workflow)
+    except ComfyUIWorkflowError as exc:
+        return ComfyUISubmitResponse(
+            enabled=True,
+            submitted=False,
+            message=str(exc),
+        )
     except ComfyUIError as exc:
         return ComfyUISubmitResponse(
             enabled=True,
@@ -126,6 +131,7 @@ def generate_art_image_with_comfyui(request: ComfyUIImageGenerateRequest):
             height=height,
             seed=request.seed,
             batch_size=request.count,
+            settings=settings.comfyui,
         )
         prompt_id = submit_workflow(settings.comfyui, workflow)
         history = wait_for_history(settings.comfyui, prompt_id)

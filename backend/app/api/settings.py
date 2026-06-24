@@ -1,6 +1,10 @@
 from fastapi import APIRouter
 
 from app.modules.art_pipeline.comfyui_client import ComfyUIError, test_comfyui_connection
+from app.modules.art_pipeline.comfyui_workflow import (
+    ComfyUIWorkflowError,
+    build_template_txt2img_workflow,
+)
 from app.modules.art_pipeline.image_provider_client import (
     ImageProviderError,
     test_image_provider_connection,
@@ -57,6 +61,28 @@ def test_comfyui():
         return ConnectionTestResponse(ok=False, message=str(exc))
 
     return ConnectionTestResponse(ok=True, message="ComfyUI connection succeeded.")
+
+
+@router.post("/comfyui/workflow/test", response_model=ConnectionTestResponse)
+def test_comfyui_workflow():
+    settings = load_settings()
+
+    try:
+        workflow = build_template_txt2img_workflow(
+            positive_prompt="workflow validation prompt",
+            negative_prompt="workflow validation negative prompt",
+            width=settings.comfyui.width,
+            height=settings.comfyui.height,
+            seed=1,
+            settings=settings.comfyui,
+        )
+    except ComfyUIWorkflowError as exc:
+        return ConnectionTestResponse(ok=False, message=str(exc))
+
+    return ConnectionTestResponse(
+        ok=True,
+        message=f"ComfyUI workflow mapping is valid ({len(workflow)} nodes).",
+    )
 
 
 @router.post("/image-provider/test", response_model=ConnectionTestResponse)

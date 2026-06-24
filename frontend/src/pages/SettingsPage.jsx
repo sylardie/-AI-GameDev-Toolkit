@@ -4,6 +4,7 @@ import {
   getSettings,
   saveSettings,
   testComfyConnection,
+  testComfyWorkflow,
   testImageProviderConnection,
   testLlmConnection,
 } from "../api/settingsApi";
@@ -29,6 +30,11 @@ const emptySettings = {
     steps: 20,
     cfg: 7,
     seed: -1,
+    workflow: {},
+    positive_prompt_node_id: "",
+    negative_prompt_node_id: "",
+    sampler_node_id: "",
+    latent_node_id: "",
   },
   image_provider: {
     enabled: false,
@@ -70,6 +76,7 @@ function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState("");
   const [testResults, setTestResults] = useState({});
+  const [workflowFileName, setWorkflowFileName] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("llm");
@@ -151,7 +158,9 @@ function SettingsPage() {
           ? await testLlmConnection()
           : kind === "image"
             ? await testImageProviderConnection()
-            : await testComfyConnection();
+            : kind === "workflow"
+              ? await testComfyWorkflow()
+              : await testComfyConnection();
       if (result.ok) {
         setTestResults((current) => ({
           ...current,
@@ -208,6 +217,31 @@ function SettingsPage() {
     }));
   }
 
+  async function handleWorkflowFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setMessage("");
+
+    try {
+      const workflow = JSON.parse(await file.text());
+      if (!workflow || Array.isArray(workflow) || typeof workflow !== "object") {
+        throw new Error(settingsText.comfyWorkflowInvalid);
+      }
+      if ("nodes" in workflow) {
+        throw new Error(settingsText.comfyWorkflowUiFormat);
+      }
+
+      updateComfy("workflow", workflow);
+      setWorkflowFileName(file.name);
+      setMessage(settingsText.comfyWorkflowImported.replace("{count}", Object.keys(workflow).length));
+    } catch (err) {
+      setError(err.message || settingsText.comfyWorkflowInvalid);
+      event.target.value = "";
+    }
+  }
+
   if (loading) {
     return <div className="page"><div className="empty-state">{texts.common.loading}</div></div>;
   }
@@ -228,8 +262,8 @@ function SettingsPage() {
           onChange={setActiveTab}
           tabs={[
             { id: "llm", label: settingsText.llmTitle },
-            { id: "comfy", label: settingsText.comfyTitle },
             { id: "image", label: settingsText.imageProviderTitle },
+            { id: "comfy", label: settingsText.comfyTitle },
           ]}
         />
       </section>
@@ -365,7 +399,10 @@ function SettingsPage() {
       {activeTab === "comfy" && (
       <section className="panel">
         <div className="section-header-row">
-          <h2>{settingsText.comfyTitle}</h2>
+          <div>
+            <h2>{settingsText.comfyTitle}</h2>
+            <p>{settingsText.comfyIntro}</p>
+          </div>
           <label className="toggle-field">
             <input
               type="checkbox"
@@ -374,6 +411,18 @@ function SettingsPage() {
             />
             <span>{settingsText.enabled}</span>
           </label>
+        </div>
+
+        <div className="comfy-setup-steps">
+          {settingsText.comfySteps.map((step, index) => (
+            <div className="comfy-setup-step" key={step.title}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{step.title}</strong>
+                <p>{step.detail}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="settings-grid">
@@ -389,12 +438,59 @@ function SettingsPage() {
           <NumberField label={settingsText.seed} value={form.comfyui.seed} onChange={(value) => updateComfy("seed", value)} />
         </div>
 
+        <div className="comfy-workflow-card">
+          <div className="block-header">
+            <h3>{settingsText.comfyCustomTitle}</h3>
+            <span>
+              {Object.keys(form.comfyui.workflow || {}).length > 0
+                ? settingsText.comfyWorkflowLoaded.replace("{count}", Object.keys(form.comfyui.workflow).length)
+                : settingsText.comfyWorkflowMissing}
+            </span>
+          </div>
+          <label className="workflow-file-input">
+            <span>{settingsText.comfyImportWorkflow}</span>
+            <input type="file" accept=".json,application/json" onChange={handleWorkflowFile} />
+          </label>
+          {workflowFileName && <p className="workflow-file-name">{workflowFileName}</p>}
+          <div className="scan-note compact-note">{settingsText.comfyExportHint}</div>
+
+          <h3 className="comfy-mapping-title">{settingsText.comfyNodeMapping}</h3>
+          <p>{settingsText.comfyNodeMappingHint}</p>
+          <div className="settings-grid">
+            <TextField
+              label={settingsText.comfyPositiveNode}
+              value={form.comfyui.positive_prompt_node_id}
+              onChange={(value) => updateComfy("positive_prompt_node_id", value)}
+            />
+            <TextField
+              label={settingsText.comfyNegativeNode}
+              value={form.comfyui.negative_prompt_node_id}
+              onChange={(value) => updateComfy("negative_prompt_node_id", value)}
+            />
+            <TextField
+              label={settingsText.comfySamplerNode}
+              value={form.comfyui.sampler_node_id}
+              onChange={(value) => updateComfy("sampler_node_id", value)}
+            />
+            <TextField
+              label={settingsText.comfyLatentNode}
+              value={form.comfyui.latent_node_id}
+              onChange={(value) => updateComfy("latent_node_id", value)}
+            />
+          </div>
+        </div>
+
         <div className="action-row">
           <button className="secondary-button" onClick={() => runTest("comfy")} disabled={testing === "comfy"}>
             {testing === "comfy" ? texts.common.testing : `${texts.common.test} ComfyUI`}
           </button>
+          <button className="secondary-button" onClick={() => runTest("workflow")} disabled={testing === "workflow"}>
+            {testing === "workflow" ? texts.common.testing : settingsText.comfyValidateWorkflow}
+          </button>
           <ConnectionTestStatus result={testResults.comfy} texts={settingsText} />
+          <ConnectionTestStatus result={testResults.workflow} texts={settingsText} />
         </div>
+        <div className="scan-note compact-note">{settingsText.comfyTestHint}</div>
       </section>
       )}
 
@@ -425,6 +521,15 @@ function NumberField({ label, value, onChange }) {
     <label className="form-field">
       <span>{label}</span>
       <input type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} />
+    </label>
+  );
+}
+
+function TextField({ label, value, onChange }) {
+  return (
+    <label className="form-field">
+      <span>{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }

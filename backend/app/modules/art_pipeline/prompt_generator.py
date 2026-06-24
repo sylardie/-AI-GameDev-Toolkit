@@ -9,7 +9,10 @@ from app.schemas.art import (
     AssetNamingRule,
     ImportGuideStep,
 )
-from app.modules.art_pipeline.comfyui_workflow import build_basic_txt2img_workflow
+from app.modules.art_pipeline.comfyui_workflow import (
+    ComfyUIWorkflowError,
+    build_basic_txt2img_workflow,
+)
 from app.modules.shared.llm_client import LLMError, chat_completion_json
 from app.modules.shared.settings_store import load_settings
 
@@ -60,12 +63,17 @@ def generate_art_prompt(request: ArtPromptGenerateRequest) -> ArtPromptGenerateR
     title = analysis.title.strip() or _title_from_prompt(analysis.content_prompt, title)
     positive_prompt = _combine_prompts(analysis.content_prompt, analysis.style_spec_prompt)
     negative_prompt = analysis.negative_prompt or ", ".join(_negative_prompt_terms(request))
-    comfyui_workflow = build_basic_txt2img_workflow(
-        request,
-        positive_prompt,
-        negative_prompt,
-        settings.comfyui,
-    )
+    comfyui_workflow = {}
+    if settings.comfyui.workflow:
+        try:
+            comfyui_workflow = build_basic_txt2img_workflow(
+                request,
+                positive_prompt,
+                negative_prompt,
+                settings.comfyui,
+            )
+        except ComfyUIWorkflowError:
+            comfyui_workflow = {}
 
     return ArtPromptGenerateResponse(
         title=title,
