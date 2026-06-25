@@ -10,11 +10,12 @@ import {
   generateComfyImage,
   generateArtPrompt,
   getStyleProfiles,
+  updateStyleProfile,
 } from "../api/artApi";
 import { downloadFile } from "../api/fileApi";
 import AiRequiredNotice from "../components/AiRequiredNotice";
 import PageTabs from "../components/PageTabs";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 const assetTypeValues = ["character", "item", "environment", "ui_icon", "sprite", "tileset", "concept_art"];
 const styleValues = ["pixel_art", "hand_painted", "low_poly", "anime", "realistic", "flat_vector"];
@@ -42,6 +43,10 @@ function ArtPipelinePage() {
 
   const [profiles, setProfiles] = useState([]);
   const [profileError, setProfileError] = useState("");
+  const [editingProfileId, setEditingProfileId] = useState("");
+  const [editProfileName, setEditProfileName] = useState("");
+  const [editProfileContent, setEditProfileContent] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
   const [styleProfileId, setStyleProfileId] = useState("");
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === styleProfileId) || null,
@@ -172,10 +177,53 @@ function ArtPipelinePage() {
     }
   }
 
-  function useProfile(profile) {
+  function applyProfile(profile) {
     setStyleProfileId(profile.id);
     if (profile.negative_prompt) setNegativePrompt(profile.negative_prompt);
     setActiveTab("image");
+  }
+
+  function startEditingProfile(profile) {
+    setEditingProfileId(profile.id);
+    setEditProfileName(profile.name);
+    setEditProfileContent(profile.style_spec_prompt || "");
+    setProfileError("");
+  }
+
+  function cancelEditingProfile() {
+    setEditingProfileId("");
+    setEditProfileName("");
+    setEditProfileContent("");
+  }
+
+  async function saveProfileEdits(profile) {
+    if (!editProfileName.trim()) {
+      setProfileError(artText.errors.profileNameRequired);
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError("");
+    try {
+      await updateStyleProfile(profile.id, {
+        name: editProfileName.trim(),
+        content_prompt: profile.content_prompt || "",
+        style_spec_prompt: editProfileContent.trim(),
+        negative_prompt: profile.negative_prompt || "",
+        palette: profile.palette || [],
+        camera_view: profile.camera_view || "",
+        resolution_advice: profile.resolution_advice || "",
+        naming_advice: profile.naming_advice || "",
+        suitable_asset_types: profile.suitable_asset_types || [],
+        source_image_path: profile.source_image_path || "",
+      });
+      await loadProfiles();
+      cancelEditingProfile();
+    } catch (err) {
+      setProfileError(err.message);
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   function finalPrompt() {
@@ -453,17 +501,50 @@ function ArtPipelinePage() {
           <div className="profile-list">
             {profiles.map((profile) => (
               <div className="profile-card" key={profile.id}>
-                <div>
-                  <h3>{profile.name}</h3>
-                  <p>{profile.style_spec_prompt}</p>
-                  <div className="tag-list">
-                    {(profile.palette || []).map((item) => <span key={item}>{item}</span>)}
+                {editingProfileId === profile.id ? (
+                  <div className="profile-edit-form">
+                    <label className="form-field">
+                      <span>{artText.profileName}</span>
+                      <input
+                        value={editProfileName}
+                        onChange={(event) => setEditProfileName(event.target.value)}
+                        maxLength={120}
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>{artText.profileContent}</span>
+                      <textarea
+                        value={editProfileContent}
+                        onChange={(event) => setEditProfileContent(event.target.value)}
+                        rows={5}
+                        maxLength={2000}
+                      />
+                    </label>
+                    <div className="action-row compact">
+                      <button onClick={() => saveProfileEdits(profile)} disabled={profileSaving}>
+                        {profileSaving ? texts.common.saving : texts.common.save}
+                      </button>
+                      <button className="secondary-button" onClick={cancelEditingProfile} disabled={profileSaving}>
+                        {texts.common.cancel}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="action-row compact">
-                  <button className="secondary-button" onClick={() => useProfile(profile)}>{artText.useProfile}</button>
-                  <button className="secondary-button" onClick={() => removeProfile(profile.id)}>{texts.common.remove}</button>
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <h3>{profile.name}</h3>
+                      <p>{profile.style_spec_prompt}</p>
+                      <div className="tag-list">
+                        {(profile.palette || []).map((item) => <span key={item}>{item}</span>)}
+                      </div>
+                    </div>
+                    <div className="action-row compact">
+                      <button className="secondary-button" onClick={() => applyProfile(profile)}>{artText.useProfile}</button>
+                      <button className="secondary-button" onClick={() => startEditingProfile(profile)}>{texts.common.edit}</button>
+                      <button className="secondary-button" onClick={() => removeProfile(profile.id)}>{texts.common.remove}</button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
             {profiles.length === 0 && <div className="empty-state">{artText.noProfiles}</div>}

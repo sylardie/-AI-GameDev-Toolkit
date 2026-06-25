@@ -10,6 +10,10 @@ venv/
 # Node
 node_modules/
 dist/
+build/
+release/
+artifacts/
+*.spec
 .vite/
 
 # IDE
@@ -23,7 +27,7 @@ Thumbs.db
 # App data
 backend/app/data/outputs/
 backend/app/data/traces/
-backend/app/data/config/local_settings.json
+backend/app/data/config/
 
 # Logs
 *.log

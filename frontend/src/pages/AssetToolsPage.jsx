@@ -8,7 +8,7 @@ import {
 } from "../api/assetsApi";
 import { downloadFile, getDownloadUrl } from "../api/fileApi";
 import PageTabs from "../components/PageTabs";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 function AssetToolsPage() {
   const { texts } = useI18n();
@@ -29,7 +29,7 @@ function AssetToolsPage() {
   const [transparentFeather, setTransparentFeather] = useState(16);
   const [selectedFrames, setSelectedFrames] = useState([]);
   const [result, setResult] = useState(null);
-  const [cacheBust, setCacheBust] = useState(Date.now());
+  const [cacheBust, setCacheBust] = useState(0);
   const [copyMessage, setCopyMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -666,13 +666,11 @@ function AnimationPreview({ frames, getUrl, texts }) {
     return () => window.clearInterval(timer);
   }, [frames.length, playing, speed]);
 
-  useEffect(() => {
-    if (current >= frames.length) setCurrent(0);
-  }, [current, frames.length]);
-
   if (frames.length === 0) {
     return <div className="animation-preview empty-state">{texts.animationPreview}</div>;
   }
+
+  const safeCurrent = current % frames.length;
 
   return (
     <div className="animation-preview">
@@ -683,7 +681,7 @@ function AnimationPreview({ frames, getUrl, texts }) {
         </button>
       </div>
       <div className="animation-stage">
-        <img src={getUrl(frames[current].path)} alt="animation preview" />
+        <img src={getUrl(frames[safeCurrent].path)} alt="animation preview" />
       </div>
       <label className="form-field">
         <span>FPS</span>

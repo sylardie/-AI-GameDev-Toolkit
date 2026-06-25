@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 import requests
 
 from app.core.config import (
@@ -75,7 +77,7 @@ def chat_completion_json(
     data = response.json()
 
     try:
-        return data["choices"][0]["message"]["content"]
+        return _normalize_json_content(data["choices"][0]["message"]["content"])
     except Exception as exc:
         raise LLMError(f"Invalid LLM response format: {data}") from exc
 
@@ -96,6 +98,16 @@ def chat_completion_json_with_image(
 
     if not api_key:
         raise LLMError("LLM_API_KEY is not configured.")
+
+    if _is_local_ollama(api_base_url):
+        return _ollama_chat_completion_json_with_image(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            image_data_url=image_data_url,
+            api_base_url=api_base_url,
+            model=model,
+            timeout=timeout,
+        )
 
     url = f"{api_base_url}/v1/chat/completions"
     payload = {
@@ -138,6 +150,66 @@ def chat_completion_json_with_image(
     data = response.json()
 
     try:
-        return data["choices"][0]["message"]["content"]
+        return _normalize_json_content(data["choices"][0]["message"]["content"])
     except Exception as exc:
         raise LLMError(f"Invalid vision LLM response format: {data}") from exc
+
+
+def _ollama_chat_completion_json_with_image(
+    system_prompt: str,
+    user_prompt: str,
+    image_data_url: str,
+    api_base_url: str,
+    model: str,
+    timeout: int,
+) -> str:
+    image_base64 = image_data_url.split(",", 1)[-1]
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": user_prompt,
+                "images": [image_base64],
+            },
+        ],
+        "format": "json",
+        "stream": False,
+        "options": {"temperature": 0.4},
+    }
+
+    try:
+        response = requests.post(
+            f"{api_base_url}/api/chat",
+            json=payload,
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        raise LLMError(f"Ollama vision request failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise LLMError(
+            f"Ollama vision API error {response.status_code}: {response.text}. "
+            "Make sure the configured Ollama model supports vision."
+        )
+
+    data = response.json()
+    try:
+        return _normalize_json_content(data["message"]["content"])
+    except Exception as exc:
+        raise LLMError(f"Invalid Ollama vision response format: {data}") from exc
+
+
+def _is_local_ollama(api_base_url: str) -> bool:
+    parsed = urlparse(api_base_url)
+    return parsed.hostname in {"127.0.0.1", "localhost", "::1"} and parsed.port == 11434
+
+
+def _normalize_json_content(content: str) -> str:
+    value = content.strip()
+    if value.startswith("```") and value.endswith("```"):
+        value = value[3:-3].strip()
+        if value.lower().startswith("json"):
+            value = value[4:].lstrip()
+    return value

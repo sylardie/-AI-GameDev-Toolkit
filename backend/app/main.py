@@ -1,5 +1,9 @@
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.core.config import ensure_app_dirs
 from app.api.design import router as design_router
@@ -50,3 +54,15 @@ app.include_router(assets_router)
 app.include_router(audio_router)
 app.include_router(files_router)
 app.include_router(settings_router)
+
+
+FRONTEND_DIR = Path(os.getenv("AI_GAMEDEV_FRONTEND_DIR", "")).resolve()
+
+
+if FRONTEND_DIR.is_dir() and (FRONTEND_DIR / "index.html").is_file():
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_frontend(full_path: str):
+        requested = (FRONTEND_DIR / full_path).resolve()
+        if FRONTEND_DIR in requested.parents and requested.is_file():
+            return FileResponse(requested)
+        return FileResponse(FRONTEND_DIR / "index.html")

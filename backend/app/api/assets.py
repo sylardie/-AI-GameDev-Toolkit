@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -18,9 +17,15 @@ from app.schemas.assets import (
     SpriteSheetExportRequest,
     SpriteSheetResponse,
 )
+from app.modules.shared.uploads import (
+    UploadTooLargeError,
+    copy_upload_with_limit,
+)
 
 
 router = APIRouter(prefix="/api/assets", tags=["Asset Tools"])
+MAX_VIDEO_UPLOAD_BYTES = 500 * 1024 * 1024
+MAX_IMAGE_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 @router.post("/spritesheet", response_model=SpriteSheetResponse)
@@ -69,9 +74,13 @@ def create_spritesheet(
         raise HTTPException(status_code=400, detail="Transparency feather must be between 0 and 255.")
 
     suffix = _safe_suffix(video.filename or "")
-    with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        shutil.copyfileobj(video.file, temp_file)
-        temp_path = temp_file.name
+    try:
+        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_path = temp_file.name
+            copy_upload_with_limit(video.file, temp_file, MAX_VIDEO_UPLOAD_BYTES)
+    except UploadTooLargeError as exc:
+        Path(temp_path).unlink(missing_ok=True)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
     try:
         return generate_spritesheet_from_video(
@@ -169,9 +178,13 @@ def create_transparent_image(
         raise HTTPException(status_code=400, detail="Transparency feather must be between 0 and 255.")
 
     suffix = _safe_image_suffix(image.filename or "")
-    with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        shutil.copyfileobj(image.file, temp_file)
-        temp_path = temp_file.name
+    try:
+        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_path = temp_file.name
+            copy_upload_with_limit(image.file, temp_file, MAX_IMAGE_UPLOAD_BYTES)
+    except UploadTooLargeError as exc:
+        Path(temp_path).unlink(missing_ok=True)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
     try:
         return remove_image_background(

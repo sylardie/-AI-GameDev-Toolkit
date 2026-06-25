@@ -9,7 +9,7 @@ BACKEND_DIR = BASE_DIR.parent
 
 load_dotenv(BACKEND_DIR / ".env")
 
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = Path(os.getenv("AI_GAMEDEV_DATA_DIR", str(BASE_DIR / "data"))).expanduser().resolve()
 OUTPUTS_DIR = DATA_DIR / "outputs"
 TRACES_DIR = DATA_DIR / "traces"
 CONFIG_DIR = DATA_DIR / "config"

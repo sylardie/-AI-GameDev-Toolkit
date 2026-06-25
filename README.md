@@ -2,6 +2,8 @@
 
 AI GameDev Toolkit is a local web-based workflow platform for game developers.
 
+> Current release target: **v0.1.0 public preview**. The project is usable, but AI provider behavior and generated game-development output should still be reviewed by a human.
+
 The MVP is being narrowed toward practical Godot / Unity game-development agent workflows:
 
 * Config Generator: generate structured Unity / Godot configuration table packages with a configured LLM and export JSON / Excel / Godot `.tres` resources.
@@ -11,7 +13,7 @@ The MVP is being narrowed toward practical Godot / Unity game-development agent 
 * Asset Tools: convert videos into downloadable spritesheet PNG + metadata JSON outputs and remove simple solid-color image backgrounds.
 * Audio Tools: locally preview, clip, normalize, and export game audio files.
 
-The app is local-first. API keys can be configured in local backend settings, and the current MVP does not write into external Godot / Unity projects.
+The app is local-first. API keys can be configured in local backend settings, and the current MVP does not write into external Godot / Unity projects. API keys are stored locally in plain text; read [PRIVACY.md](PRIVACY.md) before use.
 
 The frontend currently supports English and Chinese. Use the language toggle in the top-right corner to switch the UI language.
 
@@ -42,6 +44,8 @@ Backend:
 
 ```bat
 cd backend
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m uvicorn app.main:app --port 8010
 ```
 
@@ -52,9 +56,7 @@ cd frontend
 npm.cmd run dev
 ```
 
-## Electron Desktop Dev
-
-The first desktop pass is a development shell around the existing local web app. It does not package Python or create a Windows installer yet.
+## Electron Desktop
 
 Requirements:
 
@@ -75,6 +77,15 @@ Electron will:
 * Stop only the backend process it started when the desktop window exits.
 
 The browser workflow still works through `scripts\start-dev.cmd` or the manual backend/frontend commands above.
+
+Build a Windows installer and portable executable:
+
+```bat
+cd frontend
+npm.cmd run dist:win
+```
+
+Build artifacts are written to `frontend/artifacts/`. See [docs/RELEASING.md](docs/RELEASING.md) for the complete release process.
 
 ## Main Pages
 
@@ -100,7 +111,9 @@ Settings supports local configuration for:
   * Google Gemini / Gemma entry backed by the Gemini image-generation API.
 * ComfyUI running locally or on a reachable endpoint.
 
-Config generation requires a configured LLM. ComfyUI remains optional; when it is disabled, Art Pipeline still produces local prompts and workflow payload previews. Online image generation is optional and uses the configured OpenAI-compatible Image Provider when enabled.
+Config generation requires a configured LLM. ComfyUI remains optional and requires a user-supplied API-format workflow. Online image generation is optional and uses the configured image provider when enabled.
+
+Reference images are sent to the configured vision model. Use Ollama or another local endpoint if images must stay on the machine.
 
 Free / low-cost multimodal API notes:
 
@@ -115,3 +128,26 @@ The recommended direction is to keep OpenAI-compatible custom endpoints for imag
 Build the broad product direction first, then refine details and user experience.
 
 All new work should serve concrete game-development outputs: configuration tables, validation reports, project diagnostics, import settings, asset specifications, and structured implementation guidance.
+
+## Quality checks
+
+```bat
+cd frontend
+npm.cmd run lint
+npm.cmd run build
+npm.cmd audit --audit-level=high
+
+cd ..\backend
+.venv\Scripts\python.exe -m pip check
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+.venv\Scripts\python.exe -m compileall app
+```
+
+## Security and contributing
+
+- [Privacy](PRIVACY.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Release guide](docs/RELEASING.md)
+
+Licensed under the [MIT License](LICENSE).

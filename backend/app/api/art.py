@@ -12,6 +12,7 @@ from app.modules.art_pipeline.style_profile_store import (
     delete_style_profile,
     get_style_profile,
     list_style_profiles,
+    update_style_profile,
 )
 from app.modules.art_pipeline.comfyui_client import (
     ComfyUIError,
@@ -28,6 +29,7 @@ from app.modules.art_pipeline.comfyui_workflow import (
 from app.modules.art_pipeline.prompt_generator import generate_art_prompt
 from app.modules.shared.llm_client import LLMError
 from app.modules.shared.settings_store import load_settings
+from app.modules.shared.uploads import UploadTooLargeError, read_upload_with_limit
 from app.schemas.art import (
     ArtImageAnalyzeResponse,
     ArtImageGenerateRequest,
@@ -44,6 +46,7 @@ from app.schemas.art import (
 )
 
 router = APIRouter(prefix="/api/art", tags=["Art Pipeline"])
+MAX_REFERENCE_IMAGE_BYTES = 25 * 1024 * 1024
 
 
 @router.get("/status")
@@ -202,7 +205,10 @@ async def analyze_art_image(image: UploadFile = File(...)):
     output_dir.mkdir(parents=True, exist_ok=True)
     image_path = output_dir / f"source{suffix}"
 
-    content = await image.read()
+    try:
+        content = await read_upload_with_limit(image, MAX_REFERENCE_IMAGE_BYTES)
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded image is empty.")
     image_path.write_bytes(content)
@@ -223,6 +229,14 @@ def get_art_style_profiles():
 @router.post("/style-profiles", response_model=ArtStyleProfile)
 def save_art_style_profile(request: ArtStyleProfileCreate):
     return create_style_profile(request)
+
+
+@router.put("/style-profiles/{profile_id}", response_model=ArtStyleProfile)
+def edit_art_style_profile(profile_id: str, request: ArtStyleProfileCreate):
+    profile = update_style_profile(profile_id, request)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Style profile not found.")
+    return profile
 
 
 @router.delete("/style-profiles/{profile_id}")

@@ -7,9 +7,12 @@ const FRONTEND_DIR = path.resolve(__dirname, "..");
 const ROOT_DIR = path.resolve(FRONTEND_DIR, "..");
 const BACKEND_DIR = path.join(ROOT_DIR, "backend");
 const PYTHON_EXE = path.join(BACKEND_DIR, ".venv", "Scripts", "python.exe");
+const PACKAGED_BACKEND_EXE = path.join(process.resourcesPath, "backend", "ai-gamedev-backend.exe");
+const PACKAGED_FRONTEND_DIR = path.join(process.resourcesPath, "frontend");
 const HEALTH_URL = "http://127.0.0.1:8010/api/health";
 const REQUIRED_ASSET_SAMPLING_VERSION = 2;
-const RENDERER_URL = process.env.ELECTRON_RENDERER_URL || "http://127.0.0.1:5173";
+const RENDERER_URL = process.env.ELECTRON_RENDERER_URL
+  || (app.isPackaged ? "http://127.0.0.1:8010" : "http://127.0.0.1:5173");
 
 let mainWindow = null;
 let backendProcess = null;
@@ -27,8 +30,19 @@ async function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
     },
+  });
+
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith(RENDERER_URL)) {
+      event.preventDefault();
+    }
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const allowedDownloadPrefix = "http://127.0.0.1:8010/api/files/download";
+    return { action: url.startsWith(allowedDownloadPrefix) ? "allow" : "deny" };
   });
 
   await mainWindow.loadURL(RENDERER_URL);
@@ -50,24 +64,40 @@ async function ensureBackend() {
     );
   }
 
-  if (!require("node:fs").existsSync(PYTHON_EXE)) {
+  const backendExecutable = app.isPackaged ? PACKAGED_BACKEND_EXE : PYTHON_EXE;
+  if (!require("node:fs").existsSync(backendExecutable)) {
     throw new Error(
       [
-        "Backend virtual environment was not found.",
+        "Backend executable was not found.",
         "",
-        `Expected Python executable: ${PYTHON_EXE}`,
+        `Expected backend: ${backendExecutable}`,
         "",
-        "Create it from backend/ with:",
-        "python -m venv .venv",
-        ".venv\\Scripts\\python.exe -m pip install -r requirements.txt",
+        app.isPackaged
+          ? "Reinstall the application or download a complete release package."
+          : "Create backend/.venv and install backend/requirements.txt.",
       ].join("\n"),
     );
   }
 
-  backendProcess = spawn(PYTHON_EXE, ["-m", "uvicorn", "app.main:app", "--port", "8010"], {
-    cwd: BACKEND_DIR,
+  const backendArgs = app.isPackaged
+    ? []
+    : ["-m", "uvicorn", "app.main:app", "--port", "8010"];
+  const backendCwd = app.isPackaged ? path.dirname(backendExecutable) : BACKEND_DIR;
+  const backendEnv = {
+    ...process.env,
+    AI_GAMEDEV_DATA_DIR: app.isPackaged
+      ? path.join(app.getPath("userData"), "data")
+      : path.join(BACKEND_DIR, "app", "data"),
+  };
+  if (app.isPackaged) {
+    backendEnv.AI_GAMEDEV_FRONTEND_DIR = PACKAGED_FRONTEND_DIR;
+  }
+
+  backendProcess = spawn(backendExecutable, backendArgs, {
+    cwd: backendCwd,
     windowsHide: true,
     stdio: "ignore",
+    env: backendEnv,
   });
   backendStartedByElectron = true;
 
@@ -140,7 +170,10 @@ function stopBackendIfOwned() {
 }
 
 app.whenReady().then(async () => {
-  ipcMain.handle("dialog:choose-folder", async (_event, options = {}) => {
+  ipcMain.handle("dialog:choose-folder", async (event, options = {}) => {
+    if (!isTrustedRenderer(event)) {
+      return null;
+    }
     const dialogOptions = {
       title: options.title || "Choose Folder",
       properties: ["openDirectory"],
@@ -156,12 +189,15 @@ app.whenReady().then(async () => {
     return result.filePaths[0];
   });
 
-  ipcMain.handle("shell:show-item-in-folder", async (_event, filePath) => {
+  ipcMain.handle("shell:show-item-in-folder", async (event, filePath) => {
+    if (!isTrustedRenderer(event)) {
+      return false;
+    }
     if (!filePath || typeof filePath !== "string") {
       return false;
     }
 
-    shell.showItemInFolder(filePath);
+    shell.showItemInFolder(path.resolve(filePath));
     return true;
   });
 
@@ -179,6 +215,11 @@ app.whenReady().then(async () => {
     }
   });
 });
+
+function isTrustedRenderer(event) {
+  const url = event.senderFrame?.url || "";
+  return url.startsWith(RENDERER_URL);
+}
 
 app.on("before-quit", () => {
   stopBackendIfOwned();

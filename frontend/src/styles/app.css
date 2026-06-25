@@ -1734,6 +1734,16 @@
     line-height: 1.6;
   }
 
+  .profile-edit-form {
+    display: grid;
+    gap: 14px;
+    grid-column: 1 / -1;
+  }
+
+  .profile-edit-form textarea {
+    min-height: 120px;
+  }
+
   .time-range-panel {
     display: grid;
     gap: 10px;

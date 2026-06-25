@@ -9,7 +9,7 @@ import {
   testLlmConnection,
 } from "../api/settingsApi";
 import PageTabs from "../components/PageTabs";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 const emptySettings = {
   llm: {
@@ -82,36 +82,39 @@ function SettingsPage() {
   const [activeTab, setActiveTab] = useState("llm");
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    let active = true;
 
-  async function loadSettings() {
-    setLoading(true);
-    setError("");
-
-    try {
-      const data = await getSettings();
-      setForm({
-        llm: {
-          ...data.llm,
-          api_key: "",
-          keep_existing_api_key: true,
-        },
-        comfyui: data.comfyui,
-        image_provider: {
-          ...data.image_provider,
-          api_key: "",
-          keep_existing_api_key: true,
-        },
-      });
-      setApiKeyState(data.llm.api_key);
-      setImageApiKeyState(data.image_provider.api_key);
-    } catch (err) {
-      setError(err.message || settingsText.loadError);
-    } finally {
-      setLoading(false);
+    async function load() {
+      try {
+        const data = await getSettings();
+        if (!active) return;
+        setForm({
+          llm: {
+            ...data.llm,
+            api_key: "",
+            keep_existing_api_key: true,
+          },
+          comfyui: data.comfyui,
+          image_provider: {
+            ...data.image_provider,
+            api_key: "",
+            keep_existing_api_key: true,
+          },
+        });
+        setApiKeyState(data.llm.api_key);
+        setImageApiKeyState(data.image_provider.api_key);
+      } catch (err) {
+        if (active) setError(err.message || settingsText.loadError);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-  }
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [settingsText.loadError]);
 
   async function handleSave() {
     setSaving(true);
@@ -321,6 +324,7 @@ function SettingsPage() {
           </button>
           <ConnectionTestStatus result={testResults.llm} texts={settingsText} />
         </div>
+        <div className="scan-note compact-note">{settingsText.secretStorageHint}</div>
       </section>
       )}
 
@@ -393,6 +397,7 @@ function SettingsPage() {
           </button>
           <ConnectionTestStatus result={testResults.image} texts={settingsText} />
         </div>
+        <div className="scan-note compact-note">{settingsText.secretStorageHint}</div>
       </section>
       )}
 

@@ -5,7 +5,7 @@ import { downloadFile } from "../api/fileApi";
 import { isLlmReady } from "../api/localSettings";
 import { useLocalSettings } from "../api/useLocalSettings";
 import AiRequiredNotice from "../components/AiRequiredNotice";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 function DesignGeneratorPage() {
   const { texts } = useI18n();

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { openConfigWorkbook, scanConfigFolder } from "../api/configsApi";
 import { chooseFolder, isDesktopRuntime } from "../api/desktopApi";
 import PageTabs from "../components/PageTabs";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 const SAVED_CONFIG_PATHS_KEY = "ai-gamedev-config-manager-paths";
 const FAVORITE_WORKBOOKS_KEY = "ai-gamedev-config-manager-favorite-workbooks";
@@ -17,39 +17,13 @@ function ConfigManagerPage() {
   const [selectedSheetName, setSelectedSheetName] = useState("");
   const [workbookQuery, setWorkbookQuery] = useState("");
   const [sheetQuery, setSheetQuery] = useState("");
-  const [savedPaths, setSavedPaths] = useState([]);
-  const [favoriteWorkbooks, setFavoriteWorkbooks] = useState([]);
+  const [savedPaths, setSavedPaths] = useState(() => loadStoredList(SAVED_CONFIG_PATHS_KEY));
+  const [favoriteWorkbooks, setFavoriteWorkbooks] = useState(() => loadStoredList(FAVORITE_WORKBOOKS_KEY));
   const [loading, setLoading] = useState(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("scan");
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(SAVED_CONFIG_PATHS_KEY);
-    if (!stored) return;
-
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        setSavedPaths(parsed);
-      }
-    } catch {
-      setSavedPaths([]);
-    }
-
-    const storedFavorites = window.localStorage.getItem(FAVORITE_WORKBOOKS_KEY);
-    if (!storedFavorites) return;
-
-    try {
-      const parsedFavorites = JSON.parse(storedFavorites);
-      if (Array.isArray(parsedFavorites)) {
-        setFavoriteWorkbooks(parsedFavorites);
-      }
-    } catch {
-      setFavoriteWorkbooks([]);
-    }
-  }, []);
 
   const selectedWorkbook = useMemo(() => {
     if (!scanResult) return null;
@@ -487,6 +461,16 @@ function countWorkbookIssues(workbook) {
 function derivePathName(path) {
   const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
   return normalized.split("/").filter(Boolean).pop() || path;
+}
+
+function loadStoredList(key) {
+  try {
+    const stored = window.localStorage.getItem(key);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function scoreWorkbook(workbook, query) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { processAudio } from "../api/audioApi";
 import { downloadFile, getDownloadUrl } from "../api/fileApi";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 function AudioToolsPage() {
   const { texts } = useI18n();

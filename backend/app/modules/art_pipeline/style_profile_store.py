@@ -38,6 +38,27 @@ def create_style_profile(request: ArtStyleProfileCreate) -> ArtStyleProfile:
     return profile
 
 
+def update_style_profile(
+    profile_id: str,
+    request: ArtStyleProfileCreate,
+) -> ArtStyleProfile | None:
+    profiles = _load_profiles()
+    for index, profile in enumerate(profiles):
+        if profile.id != profile_id:
+            continue
+
+        updated = ArtStyleProfile(
+            id=profile.id,
+            created_at=profile.created_at,
+            updated_at=datetime.now().isoformat(timespec="seconds"),
+            **request.model_dump(),
+        )
+        profiles[index] = updated
+        _save_profiles(profiles)
+        return updated
+    return None
+
+
 def delete_style_profile(profile_id: str) -> bool:
     profiles = _load_profiles()
     kept = [profile for profile in profiles if profile.id != profile_id]

@@ -17,7 +17,7 @@ import {
 } from "../api/desktopApi";
 import AiRequiredNotice from "../components/AiRequiredNotice";
 import PageTabs from "../components/PageTabs";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 const SAVED_PROJECT_PATHS_KEY = "ai-gamedev-code-agent-project-paths";
 

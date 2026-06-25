@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 import packageJson from "../../package.json";
-import { useI18n } from "../i18n/I18nContext";
+import { useI18n } from "../i18n/useI18n";
 
 const moduleRoutes = ["/design", "/configs", "/code", "/art", "/assets", "/audio"];
 

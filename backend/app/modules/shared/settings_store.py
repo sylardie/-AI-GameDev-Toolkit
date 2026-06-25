@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from app.core.config import DATA_DIR
@@ -70,6 +71,10 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with SETTINGS_PATH.open("w", encoding="utf-8") as file:
         json.dump(settings.model_dump(), file, ensure_ascii=False, indent=2)
+    try:
+        os.chmod(SETTINGS_PATH, 0o600)
+    except OSError:
+        pass
 
     return settings
 

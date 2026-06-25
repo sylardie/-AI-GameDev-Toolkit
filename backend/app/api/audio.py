@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -6,9 +5,11 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.modules.art_pipeline.audio_processor import AudioProcessError, process_audio_file
 from app.schemas.audio import AudioOutputFormat, AudioProcessResponse
+from app.modules.shared.uploads import UploadTooLargeError, copy_upload_with_limit
 
 
 router = APIRouter(prefix="/api/audio", tags=["Audio Tools"])
+MAX_AUDIO_UPLOAD_BYTES = 250 * 1024 * 1024
 
 
 @router.post("/process", response_model=AudioProcessResponse)
@@ -28,9 +29,13 @@ def process_audio(
         raise HTTPException(status_code=400, detail="Target LUFS must be between -40 and -1.")
 
     suffix = _safe_audio_suffix(audio.filename or "")
-    with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        shutil.copyfileobj(audio.file, temp_file)
-        temp_path = temp_file.name
+    try:
+        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_path = temp_file.name
+            copy_upload_with_limit(audio.file, temp_file, MAX_AUDIO_UPLOAD_BYTES)
+    except UploadTooLargeError as exc:
+        Path(temp_path).unlink(missing_ok=True)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
     try:
         return process_audio_file(

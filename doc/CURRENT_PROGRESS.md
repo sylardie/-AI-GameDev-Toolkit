@@ -953,3 +953,36 @@ Verification:
 * Smoke tested `gemini` Image Provider schema acceptance.
 * Smoke tested Gemini image-response base64 extraction locally.
 * Real Gemini image generation requires a user-provided Google API key and network access.
+
+## Current Phase Update: Public Preview Release Readiness
+
+Implemented:
+
+* Added Windows packaging for the React frontend, FastAPI backend, and Python runtime.
+* Packaged builds serve the frontend from the local backend and store mutable data under Electron's per-user data directory.
+* Added NSIS installer and portable executable targets.
+* Added upload-size limits for video, image, audio, and reference-image endpoints.
+* Hardened Electron renderer isolation, navigation, popup, and IPC boundaries.
+* Added local API-key storage disclosure and clarified when reference images are sent to a configured external provider.
+* Added MIT license, privacy policy, security policy, contribution guide, release guide, CI, and Dependabot configuration.
+* Added backend release-safety tests and frontend lint cleanup.
+* Confirmed English and Chinese translation trees contain the same 410 keys.
+* Added native Ollama vision request support and editable Art Style Profiles.
+
+Verification:
+
+* `npm.cmd run lint` passes.
+* `npm.cmd run build` passes.
+* `npm.cmd audit --audit-level=high` reports zero vulnerabilities.
+* `python -m unittest discover -s tests -v` passes.
+* `python -m compileall -q app launcher.py` passes.
+* `python -m pip check` reports no broken requirements.
+* Windows NSIS and portable packages build successfully.
+* Packaged desktop smoke test starts the bundled backend, returns a healthy `0.1.0` response, and serves the React application.
+
+Known public-preview limitations:
+
+* Windows packages are unsigned and may trigger SmartScreen warnings.
+* API keys are stored locally in plain text rather than an operating-system credential vault.
+* The backend has no authentication layer and must remain bound to localhost.
+* macOS and Linux packages are not yet provided.
