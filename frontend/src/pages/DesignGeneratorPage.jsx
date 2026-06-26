@@ -5,6 +5,7 @@ import { downloadFile } from "../api/fileApi";
 import { isLlmReady } from "../api/localSettings";
 import { useLocalSettings } from "../api/useLocalSettings";
 import AiRequiredNotice from "../components/AiRequiredNotice";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
 
 function DesignGeneratorPage() {
@@ -44,16 +45,17 @@ function DesignGeneratorPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{designText.eyebrow}</div>
-          <h1>{designText.title}</h1>
-          <p>{designText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page">
+      <WorkspaceHeader
+        capability="ai"
+        capabilityLabel={texts.sidebar.capabilities.ai}
+        eyebrow={designText.eyebrow}
+        icon="design"
+        intro={designText.intro}
+        title={designText.title}
+      />
 
-      <section className="panel">
+      <section className="panel primary-workspace-panel">
         <h2>{designText.ideaTitle}</h2>
         {!llmReady && (
           <AiRequiredNotice

@@ -1,7 +1,7 @@
-const API_BASE_URL = "http://127.0.0.1:8010";
+import { apiFetch } from "./apiClient";
 
 export async function scanProject(projectPath) {
-  const response = await fetch(`${API_BASE_URL}/api/code/scan`, {
+  const response = await apiFetch("/api/code/scan", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -22,7 +22,7 @@ export async function scanProject(projectPath) {
 }
 
 export async function readProjectFile(projectPath, relativePath) {
-  const response = await fetch(`${API_BASE_URL}/api/code/file`, {
+  const response = await apiFetch("/api/code/file", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -44,7 +44,7 @@ export async function readProjectFile(projectPath, relativePath) {
 }
 
 export async function searchProject(projectPath, query, maxResults = 100) {
-  const response = await fetch(`${API_BASE_URL}/api/code/search`, {
+  const response = await apiFetch("/api/code/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -67,7 +67,7 @@ export async function searchProject(projectPath, query, maxResults = 100) {
 }
 
 export async function analyzeProjectFile(projectPath, relativePath) {
-  const response = await fetch(`${API_BASE_URL}/api/code/structure`, {
+  const response = await apiFetch("/api/code/structure", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -89,7 +89,7 @@ export async function analyzeProjectFile(projectPath, relativePath) {
 }
 
 export async function analyzeErrorLog(projectPath, logText) {
-  const response = await fetch(`${API_BASE_URL}/api/code/errors/analyze`, {
+  const response = await apiFetch("/api/code/errors/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

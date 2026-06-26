@@ -1,7 +1,7 @@
-const API_BASE_URL = "http://127.0.0.1:8010";
+import { apiFetch, handleJsonResponse } from "./apiClient";
 
 export async function scanConfigFolder(path) {
-  const response = await fetch(`${API_BASE_URL}/api/configs/scan`, {
+  const response = await apiFetch("/api/configs/scan", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -9,18 +9,11 @@ export async function scanConfigFolder(path) {
     body: JSON.stringify({ path }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    const message =
-      errorData?.detail || `Request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return response.json();
+  return handleJsonResponse(response);
 }
 
 export async function openConfigWorkbook(path) {
-  const response = await fetch(`${API_BASE_URL}/api/configs/open`, {
+  const response = await apiFetch("/api/configs/open", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -28,12 +21,5 @@ export async function openConfigWorkbook(path) {
     body: JSON.stringify({ path }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    const message =
-      errorData?.detail || `Request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return response.json();
+  return handleJsonResponse(response);
 }

@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8010";
+import { apiFetch } from "./apiClient";
 
 export async function generateSpritesheet(payload) {
   const formData = new FormData();
@@ -22,7 +22,7 @@ export async function generateSpritesheet(payload) {
   formData.append("transparent_feather", "0");
   formData.append("export_gif", "false");
 
-  const response = await fetch(`${API_BASE_URL}/api/assets/spritesheet`, {
+  const response = await apiFetch("/api/assets/spritesheet", {
     method: "POST",
     body: formData,
   });
@@ -38,7 +38,7 @@ export async function generateSpritesheet(payload) {
 }
 
 export async function applyFrameTransparency(payload) {
-  const response = await fetch(`${API_BASE_URL}/api/assets/spritesheet/transparent`, {
+  const response = await apiFetch("/api/assets/spritesheet/transparent", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -70,7 +70,7 @@ export async function applyFrameTransparency(payload) {
 }
 
 export async function exportSelectedSpritesheet(payload) {
-  const response = await fetch(`${API_BASE_URL}/api/assets/spritesheet/export`, {
+  const response = await apiFetch("/api/assets/spritesheet/export", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -104,7 +104,7 @@ export async function removeImageBackground(payload) {
   formData.append("transparent_tolerance", String(payload.transparentTolerance));
   formData.append("transparent_feather", String(payload.transparentFeather));
 
-  const response = await fetch(`${API_BASE_URL}/api/assets/image/transparent`, {
+  const response = await apiFetch("/api/assets/image/transparent", {
     method: "POST",
     body: formData,
   });

@@ -17,6 +17,7 @@ import {
 } from "../api/desktopApi";
 import AiRequiredNotice from "../components/AiRequiredNotice";
 import PageTabs from "../components/PageTabs";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
 
 const SAVED_PROJECT_PATHS_KEY = "ai-gamedev-code-agent-project-paths";
@@ -210,30 +211,31 @@ function CodeAgentPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{texts.common.phase2}</div>
-          <h1>{codeText.title}</h1>
-          <p>{codeText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page">
+      <WorkspaceHeader
+        capability="local"
+        capabilityLabel={texts.sidebar.capabilities.local}
+        eyebrow={texts.common.phase2}
+        icon="code"
+        intro={codeText.intro}
+        title={codeText.title}
+      />
 
-      <section className="panel">
+      <section className="tabs-panel">
         <PageTabs
           activeTab={activeTab}
           onChange={setActiveTab}
           tabs={[
-            { id: "scan", label: codeText.scanTitle },
-            { id: "files", label: codeText.filesTab || "Files" },
-            { id: "search", label: codeText.searchTitle },
-            { id: "logs", label: codeText.errorLogTitle },
+            { id: "scan", icon: "folder", label: codeText.scanTitle },
+            { id: "files", icon: "file", label: codeText.filesTab || "Files" },
+            { id: "search", icon: "search", label: codeText.searchTitle },
+            { id: "logs", icon: "log", label: codeText.errorLogTitle },
           ]}
         />
       </section>
 
       {activeTab === "scan" && (
-      <section className="panel">
+      <section className="panel primary-workspace-panel">
         <h2>{codeText.scanTitle}</h2>
         <label className="form-field">
           <span>{codeText.pathLabel}</span>

@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("aiGameDevToolkit", {
   platform: process.platform,
   chooseFolder: (options = {}) => ipcRenderer.invoke("dialog:choose-folder", options),
   showItemInFolder: (filePath) => ipcRenderer.invoke("shell:show-item-in-folder", filePath),
+  getApiToken: () => ipcRenderer.invoke("security:get-api-token"),
   versions: {
     chrome: process.versions.chrome,
     electron: process.versions.electron,

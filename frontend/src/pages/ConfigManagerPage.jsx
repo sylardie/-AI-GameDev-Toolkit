@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { openConfigWorkbook, scanConfigFolder } from "../api/configsApi";
 import { chooseFolder, isDesktopRuntime } from "../api/desktopApi";
 import PageTabs from "../components/PageTabs";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
 
 const SAVED_CONFIG_PATHS_KEY = "ai-gamedev-config-manager-paths";
@@ -191,28 +192,29 @@ function ConfigManagerPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{configText.eyebrow}</div>
-          <h1>{configText.title}</h1>
-          <p>{configText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page">
+      <WorkspaceHeader
+        capability="local"
+        capabilityLabel={texts.sidebar.capabilities.local}
+        eyebrow={configText.eyebrow}
+        icon="configs"
+        intro={configText.intro}
+        title={configText.title}
+      />
 
-      <section className="panel">
+      <section className="tabs-panel">
         <PageTabs
           activeTab={activeTab}
           onChange={setActiveTab}
           tabs={[
-            { id: "scan", label: configText.scanTitle },
-            { id: "workbooks", label: configText.browser },
+            { id: "scan", icon: "folder", label: configText.scanTitle },
+            { id: "workbooks", icon: "file", label: configText.browser },
           ]}
         />
       </section>
 
       {activeTab === "scan" && (
-      <section className="panel">
+      <section className="panel primary-workspace-panel">
         <h2>{configText.scanTitle}</h2>
         <label className="form-field">
           <span>{configText.pathLabel}</span>

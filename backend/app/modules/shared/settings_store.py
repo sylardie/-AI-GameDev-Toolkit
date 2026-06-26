@@ -1,8 +1,15 @@
 import json
 import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from app.core.config import DATA_DIR
+from app.modules.shared.credential_crypto import (
+    CredentialEncryptionError,
+    decrypt_credential,
+    encrypt_credential,
+    load_settings_key,
+)
 from app.schemas.settings import (
     ImageProviderSettings,
     ImageProviderSettingsPublic,
@@ -25,6 +32,24 @@ def load_settings() -> LocalSettings:
 
     with SETTINGS_PATH.open("r", encoding="utf-8") as file:
         data = json.load(file)
+
+    settings_key = load_settings_key()
+    if settings_key:
+        migrated = _decrypt_or_migrate_provider_keys(data, settings_key)
+        if migrated:
+            _write_settings_data(data)
+            _verify_secure_settings_file(settings_key)
+            for provider_name in ("llm", "image_provider"):
+                encrypted = data.get(provider_name, {}).get("api_key_encrypted")
+                if isinstance(encrypted, dict):
+                    data[provider_name]["api_key"] = decrypt_credential(
+                        encrypted,
+                        settings_key,
+                    )
+    elif _contains_encrypted_keys(data):
+        raise CredentialEncryptionError(
+            "Encrypted settings require the Electron secure runtime."
+        )
 
     image_provider = data.get("image_provider")
     if isinstance(image_provider, dict) and image_provider.get("provider") not in {
@@ -68,13 +93,12 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
         ),
     )
 
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with SETTINGS_PATH.open("w", encoding="utf-8") as file:
-        json.dump(settings.model_dump(), file, ensure_ascii=False, indent=2)
-    try:
-        os.chmod(SETTINGS_PATH, 0o600)
-    except OSError:
-        pass
+    data = settings.model_dump()
+    settings_key = load_settings_key()
+    if settings_key:
+        _encrypt_provider_key(data["llm"], settings_key)
+        _encrypt_provider_key(data["image_provider"], settings_key)
+    _write_settings_data(data)
 
     return settings
 
@@ -114,3 +138,75 @@ def _secret_preview(value: str) -> str:
     if len(value) <= 8:
         return "****"
     return f"{value[:4]}...{value[-4:]}"
+
+
+def _decrypt_or_migrate_provider_keys(data: dict, settings_key: bytes) -> bool:
+    migrated = False
+    for provider_name in ("llm", "image_provider"):
+        provider = data.setdefault(provider_name, {})
+        encrypted = provider.get("api_key_encrypted")
+        plaintext = str(provider.get("api_key", ""))
+
+        if isinstance(encrypted, dict):
+            provider["api_key"] = decrypt_credential(encrypted, settings_key)
+            continue
+
+        if plaintext:
+            provider["api_key_encrypted"] = encrypt_credential(plaintext, settings_key)
+            provider.pop("api_key", None)
+            migrated = True
+        else:
+            provider["api_key"] = ""
+    return migrated
+
+
+def _encrypt_provider_key(provider: dict, settings_key: bytes) -> None:
+    plaintext = str(provider.pop("api_key", ""))
+    if plaintext:
+        provider["api_key_encrypted"] = encrypt_credential(plaintext, settings_key)
+    else:
+        provider.pop("api_key_encrypted", None)
+
+
+def _contains_encrypted_keys(data: dict) -> bool:
+    return any(
+        isinstance(data.get(provider_name), dict)
+        and isinstance(data[provider_name].get("api_key_encrypted"), dict)
+        for provider_name in ("llm", "image_provider")
+    )
+
+
+def _write_settings_data(data: dict) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=CONFIG_DIR,
+            prefix="local_settings.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temporary_path = Path(file.name)
+            json.dump(data, file, ensure_ascii=False, indent=2)
+            file.flush()
+            os.fsync(file.fileno())
+        temporary_path.replace(SETTINGS_PATH)
+    finally:
+        if temporary_path:
+            temporary_path.unlink(missing_ok=True)
+
+    try:
+        os.chmod(SETTINGS_PATH, 0o600)
+    except OSError:
+        pass
+
+
+def _verify_secure_settings_file(settings_key: bytes) -> None:
+    with SETTINGS_PATH.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+    for provider_name in ("llm", "image_provider"):
+        encrypted = data.get(provider_name, {}).get("api_key_encrypted")
+        if isinstance(encrypted, dict):
+            decrypt_credential(encrypted, settings_key)

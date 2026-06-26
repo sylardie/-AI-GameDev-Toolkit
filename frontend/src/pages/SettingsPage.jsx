@@ -9,6 +9,7 @@ import {
   testLlmConnection,
 } from "../api/settingsApi";
 import PageTabs from "../components/PageTabs";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
 
 const emptySettings = {
@@ -250,23 +251,23 @@ function SettingsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{settingsText.eyebrow}</div>
-          <h1>{settingsText.title}</h1>
-          <p>{settingsText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page settings-page">
+      <WorkspaceHeader
+        capability="neutral"
+        eyebrow={settingsText.eyebrow}
+        icon="settings"
+        intro={settingsText.intro}
+        title={settingsText.title}
+      />
 
-      <section className="panel">
+      <section className="tabs-panel">
         <PageTabs
           activeTab={activeTab}
           onChange={setActiveTab}
           tabs={[
-            { id: "llm", label: settingsText.llmTitle },
-            { id: "image", label: settingsText.imageProviderTitle },
-            { id: "comfy", label: settingsText.comfyTitle },
+            { id: "llm", icon: "llm", label: settingsText.llmTitle },
+            { id: "image", icon: "image", label: settingsText.imageProviderTitle },
+            { id: "comfy", icon: "comfy", label: settingsText.comfyTitle },
           ]}
         />
       </section>

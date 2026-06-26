@@ -1,3 +1,5 @@
+import ToolIcon from "./ToolIcon";
+
 function PageTabs({ tabs, activeTab, onChange }) {
   return (
     <div className="page-tabs" role="tablist">
@@ -9,6 +11,7 @@ function PageTabs({ tabs, activeTab, onChange }) {
           className={activeTab === tab.id ? "page-tab active" : "page-tab"}
           onClick={() => onChange(tab.id)}
         >
+          {tab.icon && <ToolIcon name={tab.icon} size={16} />}
           {tab.label}
         </button>
       ))}

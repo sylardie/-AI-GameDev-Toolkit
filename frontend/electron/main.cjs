@@ -1,5 +1,7 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } = require("electron");
 const { spawn } = require("node:child_process");
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 
@@ -11,12 +13,15 @@ const PACKAGED_BACKEND_EXE = path.join(process.resourcesPath, "backend", "ai-gam
 const PACKAGED_FRONTEND_DIR = path.join(process.resourcesPath, "frontend");
 const HEALTH_URL = "http://127.0.0.1:8010/api/health";
 const REQUIRED_ASSET_SAMPLING_VERSION = 2;
+const REQUIRED_LOCAL_SECURITY_VERSION = 1;
 const RENDERER_URL = process.env.ELECTRON_RENDERER_URL
   || (app.isPackaged ? "http://127.0.0.1:8010" : "http://127.0.0.1:5173");
 
 let mainWindow = null;
 let backendProcess = null;
 let backendStartedByElectron = false;
+let apiToken = "";
+let settingsKey = "";
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
@@ -36,13 +41,13 @@ async function createWindow() {
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith(RENDERER_URL)) {
+    if (!isTrustedUrl(url)) {
       event.preventDefault();
     }
   });
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    const allowedDownloadPrefix = "http://127.0.0.1:8010/api/files/download";
-    return { action: url.startsWith(allowedDownloadPrefix) ? "allow" : "deny" };
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
   });
 
   await mainWindow.loadURL(RENDERER_URL);
@@ -50,16 +55,16 @@ async function createWindow() {
 
 async function ensureBackend() {
   const health = await getBackendHealth();
-  if (health.healthy && health.compatible) {
+  if (health.healthy && health.compatible && health.secure) {
     return;
   }
-  if (health.healthy && !health.compatible) {
+  if (health.healthy) {
     throw new Error(
       [
         "A stale backend is already running on http://127.0.0.1:8010.",
         "",
         "Please stop the existing backend process and start the Electron dev shell again.",
-        "The current Asset Tools frame sampling requires a newer backend.",
+        "The current application requires a compatible authenticated backend.",
       ].join("\n"),
     );
   }
@@ -85,9 +90,9 @@ async function ensureBackend() {
   const backendCwd = app.isPackaged ? path.dirname(backendExecutable) : BACKEND_DIR;
   const backendEnv = {
     ...process.env,
-    AI_GAMEDEV_DATA_DIR: app.isPackaged
-      ? path.join(app.getPath("userData"), "data")
-      : path.join(BACKEND_DIR, "app", "data"),
+    AI_GAMEDEV_DATA_DIR: path.join(app.getPath("userData"), "data"),
+    AI_GAMEDEV_API_TOKEN: apiToken,
+    AI_GAMEDEV_SETTINGS_KEY: settingsKey,
   };
   if (app.isPackaged) {
     backendEnv.AI_GAMEDEV_FRONTEND_DIR = PACKAGED_FRONTEND_DIR;
@@ -128,6 +133,9 @@ function getBackendHealth() {
         resolve({
           healthy,
           compatible: healthy && payload.asset_sampling_version >= REQUIRED_ASSET_SAMPLING_VERSION,
+          secure: healthy
+            && payload.local_security_version >= REQUIRED_LOCAL_SECURITY_VERSION
+            && payload.api_auth_required === true,
         });
       });
     });
@@ -136,7 +144,7 @@ function getBackendHealth() {
       request.destroy();
       resolve({ healthy: false, compatible: false });
     });
-    request.on("error", () => resolve({ healthy: false, compatible: false }));
+    request.on("error", () => resolve({ healthy: false, compatible: false, secure: false }));
   });
 }
 
@@ -170,6 +178,13 @@ function stopBackendIfOwned() {
 }
 
 app.whenReady().then(async () => {
+  ipcMain.handle("security:get-api-token", (event) => {
+    if (!isTrustedRenderer(event)) {
+      return "";
+    }
+    return apiToken;
+  });
+
   ipcMain.handle("dialog:choose-folder", async (event, options = {}) => {
     if (!isTrustedRenderer(event)) {
       return null;
@@ -202,6 +217,7 @@ app.whenReady().then(async () => {
   });
 
   try {
+    initializeSecuritySecrets();
     await ensureBackend();
     await createWindow();
   } catch (error) {
@@ -216,9 +232,52 @@ app.whenReady().then(async () => {
   });
 });
 
+function initializeSecuritySecrets() {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error(
+      "Windows credential encryption is unavailable. Secure startup cannot continue.",
+    );
+  }
+
+  apiToken = crypto.randomBytes(32).toString("base64url");
+  const keyPath = path.join(app.getPath("userData"), "settings-key.bin");
+  let masterKey;
+
+  if (fs.existsSync(keyPath)) {
+    try {
+      masterKey = Buffer.from(
+        safeStorage.decryptString(fs.readFileSync(keyPath)),
+        "base64",
+      );
+    } catch (error) {
+      throw new Error(`Unable to decrypt the local settings key: ${error.message}`);
+    }
+  } else {
+    masterKey = crypto.randomBytes(32);
+    const encrypted = safeStorage.encryptString(masterKey.toString("base64"));
+    const temporaryPath = `${keyPath}.tmp`;
+    fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+    fs.writeFileSync(temporaryPath, encrypted);
+    fs.renameSync(temporaryPath, keyPath);
+  }
+
+  if (masterKey.length !== 32) {
+    throw new Error("The local settings encryption key is invalid.");
+  }
+  settingsKey = masterKey.toString("base64url");
+}
+
 function isTrustedRenderer(event) {
   const url = event.senderFrame?.url || "";
-  return url.startsWith(RENDERER_URL);
+  return isTrustedUrl(url);
+}
+
+function isTrustedUrl(url) {
+  try {
+    return new URL(url).origin === new URL(RENDERER_URL).origin;
+  } catch {
+    return false;
+  }
 }
 
 app.on("before-quit", () => {

@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 
 import { useI18n } from "../i18n/useI18n";
+import ToolIcon from "./ToolIcon";
 
 const navGroups = [
   {
@@ -35,7 +36,9 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-icon">AI</div>
+        <div className="brand-icon">
+          <img src="/app-icon.ico" alt="" />
+        </div>
         <div>
           <div className="brand-title">{texts.sidebar.brandTitle}</div>
           <div className="brand-subtitle">{texts.sidebar.brandSubtitle}</div>
@@ -58,15 +61,20 @@ function Sidebar() {
                     isActive ? "nav-item active" : "nav-item"
                   }
                 >
-                  <div className="nav-label-row">
-                    <div className="nav-label">{label}</div>
-                    {capability !== "neutral" && (
-                      <span className={`nav-capability ${capability}`}>
-                        {texts.sidebar.capabilities[capability]}
-                      </span>
-                    )}
+                  <span className="nav-icon">
+                    <ToolIcon name={key} size={19} />
+                  </span>
+                  <div className="nav-copy">
+                    <div className="nav-label-row">
+                      <div className="nav-label">{label}</div>
+                      {capability !== "neutral" && (
+                        <span className={`nav-capability ${capability}`}>
+                          {texts.sidebar.capabilities[capability]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="nav-desc">{desc}</div>
                   </div>
-                  <div className="nav-desc">{desc}</div>
                 </NavLink>
               );
             })}

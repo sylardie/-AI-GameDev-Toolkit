@@ -36,7 +36,7 @@ def chat_completion_json(
     if not api_key:
         raise LLMError("LLM_API_KEY is not configured.")
 
-    url = f"{api_base_url}/v1/chat/completions"
+    url = _build_chat_completions_url(api_base_url)
 
     payload = {
         "model": model,
@@ -51,9 +51,6 @@ def chat_completion_json(
             },
         ],
         "temperature": 0.7,
-        "response_format": {
-            "type": "json_object",
-        },
     }
 
     headers = {
@@ -109,7 +106,7 @@ def chat_completion_json_with_image(
             timeout=timeout,
         )
 
-    url = f"{api_base_url}/v1/chat/completions"
+    url = _build_chat_completions_url(api_base_url)
     payload = {
         "model": model,
         "messages": [
@@ -126,9 +123,6 @@ def chat_completion_json_with_image(
             },
         ],
         "temperature": 0.4,
-        "response_format": {
-            "type": "json_object",
-        },
     }
 
     headers = {
@@ -204,6 +198,14 @@ def _ollama_chat_completion_json_with_image(
 def _is_local_ollama(api_base_url: str) -> bool:
     parsed = urlparse(api_base_url)
     return parsed.hostname in {"127.0.0.1", "localhost", "::1"} and parsed.port == 11434
+
+
+def _build_chat_completions_url(api_base_url: str) -> str:
+    base_url = api_base_url.strip().rstrip("/")
+    parsed = urlparse(base_url)
+    path_segments = [segment for segment in parsed.path.split("/") if segment]
+    endpoint = "chat/completions" if path_segments and path_segments[-1] == "v1" else "v1/chat/completions"
+    return f"{base_url}/{endpoint}"
 
 
 def _normalize_json_content(content: str) -> str:

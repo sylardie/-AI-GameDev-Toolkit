@@ -1,56 +1,45 @@
-const API_BASE_URL = "http://127.0.0.1:8010";
+import { apiFetch, handleJsonResponse } from "./apiClient";
 
 export async function getSettings() {
-  const response = await fetch(`${API_BASE_URL}/api/settings`);
-  return handleResponse(response);
+  const response = await apiFetch("/api/settings");
+  return handleJsonResponse(response);
 }
 
 export async function saveSettings(payload) {
-  const response = await fetch(`${API_BASE_URL}/api/settings`, {
+  const response = await apiFetch("/api/settings", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
-  return handleResponse(response);
+  return handleJsonResponse(response);
 }
 
 export async function testLlmConnection() {
-  const response = await fetch(`${API_BASE_URL}/api/settings/llm/test`, {
+  const response = await apiFetch("/api/settings/llm/test", {
     method: "POST",
   });
-  return handleResponse(response);
+  return handleJsonResponse(response);
 }
 
 export async function testComfyConnection() {
-  const response = await fetch(`${API_BASE_URL}/api/settings/comfyui/test`, {
+  const response = await apiFetch("/api/settings/comfyui/test", {
     method: "POST",
   });
-  return handleResponse(response);
+  return handleJsonResponse(response);
 }
 
 export async function testComfyWorkflow() {
-  const response = await fetch(`${API_BASE_URL}/api/settings/comfyui/workflow/test`, {
+  const response = await apiFetch("/api/settings/comfyui/workflow/test", {
     method: "POST",
   });
-  return handleResponse(response);
+  return handleJsonResponse(response);
 }
 
 export async function testImageProviderConnection() {
-  const response = await fetch(`${API_BASE_URL}/api/settings/image-provider/test`, {
+  const response = await apiFetch("/api/settings/image-provider/test", {
     method: "POST",
   });
-  return handleResponse(response);
-}
-
-async function handleResponse(response) {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    const message =
-      errorData?.detail || `Request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return response.json();
+  return handleJsonResponse(response);
 }

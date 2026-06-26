@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { processAudio } from "../api/audioApi";
-import { downloadFile, getDownloadUrl } from "../api/fileApi";
+import { downloadFile } from "../api/fileApi";
+import { AuthenticatedAudio } from "../components/AuthenticatedMedia";
 import { useI18n } from "../i18n/useI18n";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 
 function AudioToolsPage() {
   const { texts } = useI18n();
@@ -89,16 +91,17 @@ function AudioToolsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{audioText.eyebrow}</div>
-          <h1>{audioText.title}</h1>
-          <p>{audioText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page audio-workspace-page">
+      <WorkspaceHeader
+        capability="local"
+        capabilityLabel={texts.sidebar.capabilities.local}
+        eyebrow={audioText.eyebrow}
+        icon="audio"
+        intro={audioText.intro}
+        title={audioText.title}
+      />
 
-      <section className="panel">
+      <section className="panel primary-workspace-panel audio-upload-panel">
         <h2>{audioText.uploadTitle}</h2>
         <label
           className={dragActive ? "drop-zone active" : "drop-zone"}
@@ -133,7 +136,7 @@ function AudioToolsPage() {
         )}
       </section>
 
-      <section className="panel">
+      <section className="panel audio-process-panel">
         <h2>{audioText.processTitle}</h2>
         <div className="settings-grid">
           <NumberField label={audioText.startSeconds} value={startTime} onChange={setStartTime} step="0.01" />
@@ -168,7 +171,7 @@ function AudioToolsPage() {
       </section>
 
       {result && (
-        <section className="panel">
+        <section className="panel audio-result-panel">
           <h2>{audioText.resultTitle}</h2>
           <div className="output-summary-grid">
             <SummaryItem label={audioText.outputId} value={result.output_id} />
@@ -179,7 +182,7 @@ function AudioToolsPage() {
 
           <div className="audio-preview-card">
             <h3>{audioText.processedPreview}</h3>
-            <audio src={getDownloadUrl(result.audio_path)} controls />
+            <AuthenticatedAudio path={result.audio_path} controls />
           </div>
 
           <div className="download-row">

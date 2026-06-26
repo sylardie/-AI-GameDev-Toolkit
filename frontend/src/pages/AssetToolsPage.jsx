@@ -6,8 +6,10 @@ import {
   generateSpritesheet,
   removeImageBackground,
 } from "../api/assetsApi";
-import { downloadFile, getDownloadUrl } from "../api/fileApi";
+import { downloadFile } from "../api/fileApi";
+import { AuthenticatedImage } from "../components/AuthenticatedMedia";
 import PageTabs from "../components/PageTabs";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
 
 function AssetToolsPage() {
@@ -69,10 +71,6 @@ function AssetToolsPage() {
     () => (result ? buildImportSettings(result, metadataTarget, texts) : null),
     [metadataTarget, result, texts],
   );
-
-  function outputUrl(path) {
-    return `${getDownloadUrl(path)}&v=${cacheBust}`;
-  }
 
   function handleVideoChange(file) {
     if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
@@ -274,24 +272,25 @@ function AssetToolsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{assetText.eyebrow}</div>
-          <h1>{assetText.title}</h1>
-          <p>{assetText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page">
+      <WorkspaceHeader
+        capability="local"
+        capabilityLabel={texts.sidebar.capabilities.local}
+        eyebrow={assetText.eyebrow}
+        icon="assets"
+        intro={assetText.intro}
+        title={assetText.title}
+      />
 
-      <section className="panel">
+      <section className="tabs-panel">
         <PageTabs
           activeTab={activeTab}
           onChange={setActiveTab}
           tabs={[
-            { id: "video", label: assetText.videoTitle },
-            { id: "cleanup", label: assetText.previewCleanup },
-            { id: "result", label: assetText.resultTitle },
-            { id: "image", label: assetText.imageTitle },
+            { id: "video", icon: "video", label: assetText.videoTitle },
+            { id: "cleanup", icon: "cleanup", label: assetText.previewCleanup },
+            { id: "result", icon: "result", label: assetText.resultTitle },
+            { id: "image", icon: "image", label: assetText.imageTitle },
           ]}
         />
       </section>
@@ -427,7 +426,11 @@ function AssetToolsPage() {
                   key={`${result.output_id}-${frame.index}`}
                   onClick={() => toggleFrame(frame.index)}
                 >
-                  <img src={outputUrl(frame.path)} alt={`source frame ${frame.source_frame}`} />
+                  <AuthenticatedImage
+                    path={frame.path}
+                    version={cacheBust}
+                    alt={`source frame ${frame.source_frame}`}
+                  />
                   <span>
                     {assetText.outputFrameShort} {String(frame.index).padStart(2, "0")} / {assetText.sourceFrameShort} {String(frame.source_frame + 1).padStart(3, "0")}
                   </span>
@@ -435,7 +438,7 @@ function AssetToolsPage() {
               ))}
             </div>
 
-            <AnimationPreview frames={selectedFrameItems} getUrl={outputUrl} texts={assetText} />
+            <AnimationPreview frames={selectedFrameItems} version={cacheBust} texts={assetText} />
           </div>
         </section>
       )}
@@ -460,7 +463,11 @@ function AssetToolsPage() {
                 <span>{result.columns * result.frame_width}x{result.rows * result.frame_height}</span>
               </div>
               <div className="spritesheet-stage">
-                <img src={outputUrl(result.spritesheet_path)} alt="generated spritesheet" />
+                <AuthenticatedImage
+                  path={result.spritesheet_path}
+                  version={cacheBust}
+                  alt="generated spritesheet"
+                />
               </div>
             </div>
 
@@ -567,7 +574,11 @@ function AssetToolsPage() {
               <div className="animation-preview">
                 <h3>{assetText.transparentPng}</h3>
                 <div className="animation-stage">
-                  <img src={outputUrl(imageResult.image_path)} alt="transparent asset" />
+                  <AuthenticatedImage
+                    path={imageResult.image_path}
+                    version={cacheBust}
+                    alt="transparent asset"
+                  />
                 </div>
                 <div className="download-row">
                   <button onClick={() => downloadFile(imageResult.image_path)}>
@@ -653,7 +664,7 @@ function TransparencyControls({
   );
 }
 
-function AnimationPreview({ frames, getUrl, texts }) {
+function AnimationPreview({ frames, version, texts }) {
   const [playing, setPlaying] = useState(true);
   const [current, setCurrent] = useState(0);
   const [speed, setSpeed] = useState(16);
@@ -681,7 +692,11 @@ function AnimationPreview({ frames, getUrl, texts }) {
         </button>
       </div>
       <div className="animation-stage">
-        <img src={getUrl(frames[safeCurrent].path)} alt="animation preview" />
+        <AuthenticatedImage
+          path={frames[safeCurrent].path}
+          version={version}
+          alt="animation preview"
+        />
       </div>
       <label className="form-field">
         <span>FPS</span>

@@ -13,8 +13,10 @@ import {
   updateStyleProfile,
 } from "../api/artApi";
 import { downloadFile } from "../api/fileApi";
+import { AuthenticatedImage } from "../components/AuthenticatedMedia";
 import AiRequiredNotice from "../components/AiRequiredNotice";
 import PageTabs from "../components/PageTabs";
+import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
 
 const assetTypeValues = ["character", "item", "environment", "ui_icon", "sprite", "tileset", "concept_art"];
@@ -82,10 +84,10 @@ function ArtPipelinePage() {
   }, [analysisPreview]);
 
   const tabs = [
-    { id: "style", label: artText.tabs?.style || "Style Prompt" },
-    { id: "image", label: artText.tabs?.image || artText.imageGenerationTitle },
-    { id: "analyze", label: artText.tabs?.analyze || artText.imageAnalyzeTitle },
-    { id: "library", label: artText.tabs?.library || artText.styleLibraryTitle },
+    { id: "style", icon: "art", label: artText.tabs?.style || "Style Prompt" },
+    { id: "image", icon: "image", label: artText.tabs?.image || artText.imageGenerationTitle },
+    { id: "analyze", icon: "search", label: artText.tabs?.analyze || artText.imageAnalyzeTitle },
+    { id: "library", icon: "file", label: artText.tabs?.library || artText.styleLibraryTitle },
   ];
 
   async function loadProfiles() {
@@ -331,16 +333,19 @@ function ArtPipelinePage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="eyebrow">{texts.common.phase3}</div>
-          <h1>{artText.title}</h1>
-          <p>{artText.intro}</p>
-        </div>
-      </div>
+    <div className="page workspace-page">
+      <WorkspaceHeader
+        capability="ai"
+        capabilityLabel={texts.sidebar.capabilities.ai}
+        eyebrow={texts.common.phase3}
+        icon="art"
+        intro={artText.intro}
+        title={artText.title}
+      />
 
-      <PageTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <section className="tabs-panel">
+        <PageTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </section>
 
       {activeTab === "style" && (
         <section className="panel">
@@ -609,7 +614,7 @@ function GeneratedImages({ result }) {
     <div className="generated-image-grid">
       {result.images.map((image) => (
         <div className="generated-image-card" key={image.path}>
-          <img src={`http://127.0.0.1:8010/api/files/download?path=${encodeURIComponent(image.path)}`} alt="" />
+          <AuthenticatedImage path={image.path} alt="" />
           <button className="secondary-button" onClick={() => downloadFile(image.path)}>{image.file_name}</button>
         </div>
       ))}

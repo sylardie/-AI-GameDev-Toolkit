@@ -27,6 +27,17 @@ The build process:
 
 Packaged builds store settings, outputs, profiles, and traces under Electron's per-user application data directory. They do not write user data into the installation folder.
 
+Packaged builds also:
+
+* Require a random per-session token for local `/api/*` requests.
+* Protect provider API keys with AES-GCM using a master key protected by Windows DPAPI through Electron `safeStorage`.
+* Automatically migrate legacy plaintext provider keys on first secure startup.
+* Apply a restrictive renderer Content Security Policy and deny Electron permission requests.
+
+Generated outputs, uploaded reference images, style profiles, and traces remain ordinary local files. They are not encrypted. Prompts and reference images may be sent to the external providers configured by the user.
+
+Standalone browser development does not use Electron's DPAPI-backed credential protection. Keep it bound to `127.0.0.1` and use development-only credentials.
+
 ## Git and GitHub release
 
 If the current repository only has a Gitee remote, keep it as a mirror and add GitHub as the primary remote:

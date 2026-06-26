@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.core.config import ensure_app_dirs
+from app.core.security import LocalApiAuthMiddleware
 from app.api.design import router as design_router
 from app.api.code import router as code_router
 from app.api.configs import router as configs_router
@@ -23,6 +24,8 @@ app = FastAPI(
     description="An AI-powered toolkit for game design, code assistance, and art production.",
     version="0.1.0",
 )
+
+app.add_middleware(LocalApiAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,6 +46,8 @@ def health_check():
         "version": "0.1.0",
         "status": "running",
         "asset_sampling_version": 2,
+        "local_security_version": 1,
+        "api_auth_required": bool(os.getenv("AI_GAMEDEV_API_TOKEN", "")),
     }
 
 

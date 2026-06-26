@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8010";
+import { apiFetch, handleJsonResponse } from "./apiClient";
 
 export async function processAudio(payload) {
   const formData = new FormData();
@@ -9,17 +9,10 @@ export async function processAudio(payload) {
   formData.append("target_lufs", String(payload.targetLufs));
   formData.append("output_format", payload.outputFormat);
 
-  const response = await fetch(`${API_BASE_URL}/api/audio/process`, {
+  const response = await apiFetch("/api/audio/process", {
     method: "POST",
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    const message =
-      errorData?.detail || `Request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return response.json();
+  return handleJsonResponse(response);
 }
