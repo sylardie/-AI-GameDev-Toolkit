@@ -14,6 +14,7 @@
     "backend:build": "powershell -ExecutionPolicy Bypass -File ../scripts/build-backend.ps1",
     "build": "vite build",
     "dist:win": "powershell -ExecutionPolicy Bypass -File ../scripts/build-windows.ps1",
+    "dist:win:fast": "powershell -ExecutionPolicy Bypass -File ../scripts/package-fast.ps1",
     "lint": "eslint .",
     "preview": "vite preview"
   },
