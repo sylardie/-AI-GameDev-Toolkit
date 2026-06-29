@@ -28,7 +28,7 @@ Each section contains the same core information:
 - quality checks
 - links to security, contributing, release guide, and license
 
-The visual layer uses `frontend/src/assets/hero.png` and a Markdown table that reads like feature cards. This keeps the README attractive without adding generated assets or external hosting.
+The visual layer uses `frontend/src/assets/hero.png`, real local app dashboard screenshots under `docs/assets/screenshots/`, and a Markdown table that reads like feature cards. This keeps the README attractive without adding generated assets or external hosting.
 
 ## Validation
 

@@ -43,6 +43,10 @@ AI GameDev Toolkit 是一个面向游戏开发者的本地优先 AI 工作流平
 | Asset Tools | 视频转 spritesheet、帧导出、简单纯色背景移除和引擎导入参数展示。 |
 | Audio Tools | 本地音频预览、裁剪、可选响度标准化，以及 WAV / OGG / MP3 导出。 |
 
+### 界面预览
+
+![AI GameDev Toolkit 中文仪表盘](docs/assets/screenshots/dashboard-zh.png)
+
 ### 工作流概览
 
 ```mermaid
@@ -188,6 +192,10 @@ AI GameDev Toolkit is a local-first AI workflow platform for game developers. It
 | Art Pipeline | Generate art style specifications, prompts, naming rules, import guides, and reusable Art Style Profiles. |
 | Asset Tools | Convert videos into spritesheets, export selected frames, remove simple solid-color backgrounds, and show engine import parameters. |
 | Audio Tools | Preview, clip, optionally normalize, and export local game audio as WAV / OGG / MP3 packages. |
+
+### Interface Preview
+
+![AI GameDev Toolkit English dashboard](docs/assets/screenshots/dashboard-en.png)
 
 ### Workflow Overview
 
