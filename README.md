@@ -1,5 +1,72 @@
 # AI GameDev Toolkit
 
+## 中文简介
+
+AI GameDev Toolkit 是一个面向游戏开发者的本地优先 AI 工作流工具箱，重点服务 Godot / Unity 项目的实用制作流程，而不是通用聊天机器人。
+
+> 当前发布目标：**v0.1.0 public preview**。项目已经可用，但 AI 服务商行为和生成内容仍建议由开发者人工复核。
+
+主要功能：
+
+* 配置生成器：根据游戏想法生成 Unity / Godot 友好的结构化配置表方案，并导出 JSON / Excel / Godot `.tres` 资源包。
+* 配置管理器：只读扫描本地 Excel 配置目录，展示工作簿、工作表、表头和基础诊断。
+* 代码 Agent：只读扫描 Godot / Unity 项目，支持文件分类、文本预览、搜索、脚本结构提取和错误日志分析。
+* 美术管线：生成美术风格规范、提示词、命名规则、导入指南，并支持可复用的 Art Style Profile。
+* 资产工具：视频转 spritesheet、帧导出、简单纯色背景移除和引擎导入参数展示。
+* 音频工具：本地音频预览、裁剪、可选响度标准化，以及 WAV / OGG / MP3 导出。
+
+本项目默认本地运行，不会自动写入外部 Godot / Unity 项目。API Key 通过后端本地设置保存，请在使用前阅读 [PRIVACY.md](PRIVACY.md)。
+
+### 快速启动
+
+Windows 下在项目根目录运行：
+
+```bat
+scripts\start-dev.cmd
+```
+
+启动后访问：
+
+```text
+Backend:  http://127.0.0.1:8010
+Frontend: http://127.0.0.1:5173
+```
+
+停止开发服务：
+
+```bat
+scripts\stop-dev.cmd
+```
+
+### 桌面版构建
+
+生成 Windows 安装包和便携版：
+
+```bat
+cd frontend
+npm.cmd run dist:win
+```
+
+构建产物会输出到 `frontend/artifacts/`。完整发布流程见 [docs/RELEASING.md](docs/RELEASING.md)。
+
+### 页面入口
+
+```text
+Dashboard:        http://127.0.0.1:5173/
+Config Generator: http://127.0.0.1:5173/design
+Config Manager:   http://127.0.0.1:5173/configs
+Code Agent:       http://127.0.0.1:5173/code
+Art Pipeline:     http://127.0.0.1:5173/art
+Asset Tools:      http://127.0.0.1:5173/assets
+Audio Tools:      http://127.0.0.1:5173/audio
+Settings:         http://127.0.0.1:5173/settings
+Backend docs:     http://127.0.0.1:8010/docs
+```
+
+---
+
+## English
+
 AI GameDev Toolkit is a local web-based workflow platform for game developers.
 
 > Current release target: **v0.1.0 public preview**. The project is usable, but AI provider behavior and generated game-development output should still be reviewed by a human.
