@@ -7,7 +7,7 @@ import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/useI18n";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 
-function AudioToolsPage() {
+function AudioToolsPage({ initialTab = "local" }) {
   const { texts } = useI18n();
   const audioText = texts.audio;
   const [audioFile, setAudioFile] = useState(null);
@@ -25,7 +25,7 @@ function AudioToolsPage() {
   const [error, setError] = useState("");
   const [generationError, setGenerationError] = useState("");
   const [dragActive, setDragActive] = useState(false);
-  const [activeTab, setActiveTab] = useState("local");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [generationKind, setGenerationKind] = useState("sfx");
   const [generationEngine, setGenerationEngine] = useState("custom_api");
   const [generationPrompt, setGenerationPrompt] = useState("");

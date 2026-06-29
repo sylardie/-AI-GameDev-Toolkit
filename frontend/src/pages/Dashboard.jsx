@@ -4,10 +4,10 @@ import packageJson from "../../package.json";
 import ToolIcon from "../components/ToolIcon";
 import { useI18n } from "../i18n/useI18n";
 
-const moduleRoutes = ["/design", "/configs", "/code", "/art", "/assets", "/audio"];
-const moduleIcons = ["design", "configs", "code", "art", "assets", "audio"];
-const localModuleIndexes = [1, 2, 4, 5];
-const aiModuleIndexes = [0, 3];
+const moduleRoutes = ["/design", "/configs", "/code", "/art", "/audio-generator", "/assets", "/audio"];
+const moduleIcons = ["design", "configs", "code", "art", "audio", "assets", "audio"];
+const localModuleIndexes = [1, 2, 5, 6];
+const aiModuleIndexes = [0, 3, 4];
 
 function Dashboard() {
   const { texts } = useI18n();

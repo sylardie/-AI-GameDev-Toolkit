@@ -44,6 +44,10 @@ const router = createBrowserRouter([
         element: <AudioToolsPage />,
       },
       {
+        path: "audio-generator",
+        element: <AudioToolsPage initialTab="generate" />,
+      },
+      {
         path: "settings",
         element: <SettingsPage />,
       },

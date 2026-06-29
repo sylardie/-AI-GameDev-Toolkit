@@ -22,6 +22,7 @@ const navGroups = [
     items: [
       ["/design", "design", "ai"],
       ["/art", "art", "ai"],
+      ["/audio-generator", "audioGenerator", "ai"],
     ],
   },
   {
