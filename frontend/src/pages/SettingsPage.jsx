@@ -296,7 +296,7 @@ function SettingsPage() {
               <option value="custom">Custom</option>
             </select>
           </label>
-          <label className="form-field">
+          <label className="form-field span-2">
             <span>{settingsText.baseUrl}</span>
             <input value={form.llm.api_base_url} onChange={(event) => updateLlm("api_base_url", event.target.value)} />
           </label>
@@ -305,7 +305,7 @@ function SettingsPage() {
             <input value={form.llm.model} onChange={(event) => updateLlm("model", event.target.value)} />
           </label>
           <NumberField label={settingsText.timeout} value={form.llm.timeout} onChange={(value) => updateLlm("timeout", value)} />
-          <label className="form-field span-2">
+          <label className="form-field span-4">
             <span>
               {settingsText.apiKey} · {settingsText.keyConfigured}
               {apiKeyState.configured ? apiKeyState.preview : "No"}
@@ -359,7 +359,7 @@ function SettingsPage() {
               <option value="custom">Custom</option>
             </select>
           </label>
-          <label className="form-field">
+          <label className="form-field span-2">
             <span>{settingsText.baseUrl}</span>
             <input
               value={form.image_provider.api_base_url}
@@ -378,7 +378,7 @@ function SettingsPage() {
             value={form.image_provider.timeout}
             onChange={(value) => updateImageProvider("timeout", value)}
           />
-          <label className="form-field span-2">
+          <label className="form-field span-4">
             <span>
               {settingsText.apiKey} · {settingsText.keyConfigured}
               {imageApiKeyState.configured ? imageApiKeyState.preview : "No"}

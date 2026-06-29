@@ -272,7 +272,7 @@ function AssetToolsPage() {
   }
 
   return (
-    <div className="page workspace-page">
+    <div className="page workspace-page asset-tools-page">
       <WorkspaceHeader
         capability="local"
         capabilityLabel={texts.sidebar.capabilities.local}
@@ -302,71 +302,84 @@ function AssetToolsPage() {
           <h2>{assetText.videoTitle}</h2>
         </div>
 
-        <div className="settings-grid">
-          <DropZone
-            label={assetText.videoFile}
-            title={assetText.dropVideoTitle}
-            hint={assetText.dropVideoHint}
-            accept="video/*"
-            onFile={handleVideoChange}
-          />
+        <div className="asset-video-workspace">
+          <div className="asset-video-main">
+            <DropZone
+              label={assetText.videoFile}
+              title={assetText.dropVideoTitle}
+              hint={assetText.dropVideoHint}
+              accept="video/*"
+              onFile={handleVideoChange}
+            />
 
-          {videoInfo && (
-            <div className="asset-info span-2">
-              <strong>{videoInfo.name}</strong>
-              <span>
-                {videoInfo.width}x{videoInfo.height} / {assetText.duration}: {formatSeconds(videoInfo.duration)} / {assetText.estimatedFrames}: {estimatedSourceFrames}
-              </span>
-            </div>
-          )}
-
-          {videoPreviewUrl && (
-            <div className="video-preview-panel span-2">
-              <div className="block-header">
-                <h3>{assetText.videoPreview}</h3>
-                <span>{assetText.localPreview}</span>
+            {videoInfo && (
+              <div className="asset-info">
+                <strong>{videoInfo.name}</strong>
+                <span>
+                  {videoInfo.width}x{videoInfo.height} / {assetText.duration}: {formatSeconds(videoInfo.duration)} / {assetText.estimatedFrames}: {estimatedSourceFrames}
+                </span>
               </div>
-              <video src={videoPreviewUrl} controls preload="metadata" />
-            </div>
-          )}
+            )}
 
-          <div className="time-input-panel span-2">
-            <div className="block-header">
-              <h3>{assetText.timeRange}</h3>
-              <span>{assetText.timeRangeHint}</span>
+            {videoPreviewUrl && (
+              <div className="video-preview-panel">
+                <div className="block-header">
+                  <h3>{assetText.videoPreview}</h3>
+                  <span>{assetText.localPreview}</span>
+                </div>
+                <video src={videoPreviewUrl} controls preload="metadata" />
+              </div>
+            )}
+
+            <div className="compact-card asset-output-card">
+              <div className="block-header">
+                <h3>{assetText.outputSummary}</h3>
+              </div>
+              <div className="compact-fields-4">
+                <NumberField
+                  label={assetText.targetFrames}
+                  value={targetFrameCount}
+                  onChange={(value) => setTargetFrameCount(clampFrameCount(value, estimatedSourceFrames))}
+                  min={1}
+                  max={estimatedSourceFrames || 512}
+                />
+                <NumberField label={assetText.columns} value={columns} onChange={setColumns} />
+                <NumberField label={assetText.frameWidth} value={frameWidth} onChange={setFrameWidth} />
+                <NumberField label={assetText.frameHeight} value={frameHeight} onChange={setFrameHeight} />
+              </div>
+              <div className="compact-fields-auto">
+                <label className="form-field">
+                  <span>{assetText.metadataTarget}</span>
+                  <select value={metadataTarget} onChange={(event) => setMetadataTarget(event.target.value)}>
+                    <option value="godot">{texts.common.godot}</option>
+                    <option value="unity">{texts.common.unity}</option>
+                    <option value="generic">{texts.common.generic}</option>
+                  </select>
+                </label>
+              </div>
             </div>
-            <NumberField label={assetText.startSeconds} value={startTime} onChange={setStartTime} step="0.01" />
-            <NumberField label={assetText.endSeconds} value={endTime} onChange={setEndTime} step="0.01" />
+
+            <div className="action-row asset-primary-action">
+              <button onClick={handleGenerate} disabled={loading}>
+                {loading ? texts.common.generating : assetText.generate}
+              </button>
+            </div>
           </div>
 
-          <NumberField
-            label={assetText.targetFrames}
-            value={targetFrameCount}
-            onChange={(value) => setTargetFrameCount(clampFrameCount(value, estimatedSourceFrames))}
-            min={1}
-            max={estimatedSourceFrames || 512}
-          />
-          <div className="hint-box">
-            {assetText.targetFramesHint.replace("{count}", estimatedSourceFrames || "-")}
-          </div>
-          <NumberField label={assetText.columns} value={columns} onChange={setColumns} />
-          <NumberField label={assetText.frameWidth} value={frameWidth} onChange={setFrameWidth} />
-          <NumberField label={assetText.frameHeight} value={frameHeight} onChange={setFrameHeight} />
+          <aside className="asset-video-side">
+            <div className="time-input-panel">
+              <div className="block-header">
+                <h3>{assetText.timeRange}</h3>
+                <span>{assetText.timeRangeHint}</span>
+              </div>
+              <NumberField label={assetText.startSeconds} value={startTime} onChange={setStartTime} step="0.01" />
+              <NumberField label={assetText.endSeconds} value={endTime} onChange={setEndTime} step="0.01" />
+            </div>
 
-          <label className="form-field">
-            <span>{assetText.metadataTarget}</span>
-            <select value={metadataTarget} onChange={(event) => setMetadataTarget(event.target.value)}>
-              <option value="godot">{texts.common.godot}</option>
-              <option value="unity">{texts.common.unity}</option>
-              <option value="generic">{texts.common.generic}</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="action-row">
-          <button onClick={handleGenerate} disabled={loading}>
-            {loading ? texts.common.generating : assetText.generate}
-          </button>
+            <div className="hint-box">
+              {assetText.targetFramesHint.replace("{count}", estimatedSourceFrames || "-")}
+            </div>
+          </aside>
         </div>
         {error && <div className="error-box">{error}</div>}
       </section>
