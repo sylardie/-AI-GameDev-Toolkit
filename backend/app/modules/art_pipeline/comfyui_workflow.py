@@ -2,7 +2,7 @@ import copy
 import random
 
 from app.schemas.art import ArtPromptGenerateRequest
-from app.schemas.settings import ComfyUISettings
+from app.schemas.settings import ComfyUIAudioWorkflowProfile, ComfyUISettings
 
 
 class ComfyUIWorkflowError(Exception):
@@ -91,6 +91,41 @@ def build_basic_txt2img_workflow(
         seed=settings.seed,
         settings=settings,
     )
+
+
+def build_audio_workflow(
+    profile: ComfyUIAudioWorkflowProfile,
+    prompt: str,
+    negative_prompt: str,
+    duration: float,
+    seed: int,
+) -> dict:
+    workflow = load_audio_workflow_template(profile)
+    _set_node_input(workflow, profile.prompt_node_id, profile.prompt_input_name, prompt)
+
+    if profile.negative_prompt_node_id.strip() and profile.negative_prompt_input_name.strip():
+        _set_node_input(
+            workflow,
+            profile.negative_prompt_node_id,
+            profile.negative_prompt_input_name,
+            negative_prompt,
+        )
+    if profile.seed_node_id.strip() and profile.seed_input_name.strip():
+        _set_node_input(workflow, profile.seed_node_id, profile.seed_input_name, seed)
+    if profile.duration_node_id.strip() and profile.duration_input_name.strip():
+        _set_node_input(workflow, profile.duration_node_id, profile.duration_input_name, duration)
+
+    return workflow
+
+
+def load_audio_workflow_template(profile: ComfyUIAudioWorkflowProfile) -> dict:
+    if not profile.workflow:
+        raise ComfyUIWorkflowError("ComfyUI audio workflow is empty. Import an API Format JSON workflow in Settings.")
+    if "nodes" in profile.workflow:
+        raise ComfyUIWorkflowError("ComfyUI audio workflow is UI Format. Export it with Save (API Format) in ComfyUI.")
+    if not profile.prompt_node_id.strip() or not profile.prompt_input_name.strip():
+        raise ComfyUIWorkflowError("ComfyUI audio workflow prompt mapping is incomplete.")
+    return copy.deepcopy(profile.workflow)
 
 
 def _filename_prefix(request: ArtPromptGenerateRequest) -> str:

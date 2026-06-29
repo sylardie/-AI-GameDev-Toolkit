@@ -1314,6 +1314,26 @@
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.08);
   }
 
+  textarea {
+    width: 100%;
+    min-height: 116px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+    background: #020617;
+    color: #e5e7eb;
+    padding: 10px 11px;
+    resize: vertical;
+    outline: none;
+    font: inherit;
+    line-height: 1.5;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  textarea:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.08);
+  }
+
   .summary-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -1445,6 +1465,24 @@
 
   .comfy-mapping-title {
     margin-top: 20px;
+  }
+
+  .audio-workflow-profile {
+    margin-top: 12px;
+  }
+
+  .audio-workflow-profile h4 {
+    margin: 0;
+  }
+
+  .audio-workflow-profile p {
+    margin: 4px 0 0;
+    color: #93c5fd;
+    font-size: 13px;
+  }
+
+  .audio-workflow-grid {
+    margin-top: 12px;
   }
 
   .section-header-row,

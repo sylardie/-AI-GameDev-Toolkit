@@ -9,6 +9,10 @@ from app.modules.art_pipeline.image_provider_client import (
     ImageProviderError,
     test_image_provider_connection,
 )
+from app.modules.art_pipeline.audio_generator import (
+    AudioGenerateError,
+    test_audio_provider_connection,
+)
 from app.modules.shared.llm_client import LLMError, chat_completion_json
 from app.modules.shared.settings_store import load_settings, public_settings, save_settings
 from app.schemas.settings import (
@@ -97,3 +101,17 @@ def test_image_provider():
         return ConnectionTestResponse(ok=False, message=str(exc))
 
     return ConnectionTestResponse(ok=True, message="Image Provider connection succeeded.")
+
+
+@router.post("/audio-provider/test", response_model=ConnectionTestResponse)
+def test_audio_provider():
+    settings = load_settings()
+    if not settings.audio_provider.enabled:
+        return ConnectionTestResponse(ok=False, message="Audio Provider is disabled.")
+
+    try:
+        test_audio_provider_connection(settings.audio_provider)
+    except AudioGenerateError as exc:
+        return ConnectionTestResponse(ok=False, message=str(exc))
+
+    return ConnectionTestResponse(ok=True, message="Audio Provider connection succeeded.")

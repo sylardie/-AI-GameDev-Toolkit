@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import tempfile
@@ -15,9 +16,11 @@ from app.modules.shared.llm_client import (
     chat_completion_json,
     chat_completion_json_with_image,
 )
+from app.modules.art_pipeline.audio_generator import parse_custom_audio_response
+from app.modules.art_pipeline.comfyui_workflow import build_audio_workflow
 from app.modules.shared.uploads import UploadTooLargeError, copy_upload_with_limit
 from app.schemas.art import ArtStyleProfileCreate
-from app.schemas.settings import LLMSettings
+from app.schemas.settings import ComfyUIAudioWorkflowProfile, LLMSettings
 
 
 class ReleaseSafetyTests(unittest.TestCase):
@@ -124,6 +127,61 @@ class ReleaseSafetyTests(unittest.TestCase):
                 self.assertEqual(updated.style_spec_prompt, "Edited prompt")
             finally:
                 style_profile_store.STYLE_PROFILES_PATH = original_path
+
+    def test_custom_audio_binary_response_is_saved(self):
+        response = Mock()
+        response.headers = {"content-type": "audio/wav"}
+        response.content = b"RIFF"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = parse_custom_audio_response(response, Path(temp_dir), "wav")
+            self.assertEqual(result.response_mode, "binary")
+            self.assertEqual(result.path.read_bytes(), b"RIFF")
+            self.assertEqual(result.path.suffix, ".wav")
+
+    def test_custom_audio_base64_response_is_saved(self):
+        response = Mock()
+        response.headers = {"content-type": "application/json"}
+        response.json.return_value = {
+            "audio_base64": base64.b64encode(b"audio").decode("ascii"),
+            "mime_type": "audio/mpeg",
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = parse_custom_audio_response(response, Path(temp_dir), "mp3")
+            self.assertEqual(result.response_mode, "audio_base64")
+            self.assertEqual(result.path.read_bytes(), b"audio")
+            self.assertEqual(result.path.suffix, ".mp3")
+
+    def test_comfyui_audio_workflow_replaces_mapped_inputs(self):
+        workflow = {
+            "1": {"inputs": {"text": ""}},
+            "2": {"inputs": {"seed": 0}},
+            "3": {"inputs": {"duration": 0}},
+        }
+        profile = ComfyUIAudioWorkflowProfile(
+            enabled=True,
+            workflow=workflow,
+            prompt_node_id="1",
+            prompt_input_name="text",
+            seed_node_id="2",
+            seed_input_name="seed",
+            duration_node_id="3",
+            duration_input_name="duration",
+        )
+
+        result = build_audio_workflow(
+            profile=profile,
+            prompt="menu confirm",
+            negative_prompt="noise",
+            duration=2.5,
+            seed=42,
+        )
+
+        self.assertEqual(result["1"]["inputs"]["text"], "menu confirm")
+        self.assertEqual(result["2"]["inputs"]["seed"], 42)
+        self.assertEqual(result["3"]["inputs"]["duration"], 2.5)
+        self.assertEqual(workflow["1"]["inputs"]["text"], "")
 
     @staticmethod
     def _llm_settings() -> LLMSettings:

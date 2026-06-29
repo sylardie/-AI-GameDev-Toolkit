@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { processAudio } from "../api/audioApi";
+import { generateAudio, processAudio } from "../api/audioApi";
 import { downloadFile } from "../api/fileApi";
 import { AuthenticatedAudio } from "../components/AuthenticatedMedia";
+import PageTabs from "../components/PageTabs";
 import { useI18n } from "../i18n/useI18n";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 
@@ -18,9 +19,21 @@ function AudioToolsPage() {
   const [targetLufs, setTargetLufs] = useState(-16);
   const [outputFormat, setOutputFormat] = useState("wav");
   const [result, setResult] = useState(null);
+  const [generatedResult, setGeneratedResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [generationError, setGenerationError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [activeTab, setActiveTab] = useState("local");
+  const [generationKind, setGenerationKind] = useState("sfx");
+  const [generationEngine, setGenerationEngine] = useState("custom_api");
+  const [generationPrompt, setGenerationPrompt] = useState("");
+  const [generationDuration, setGenerationDuration] = useState(5);
+  const [generationLoopable, setGenerationLoopable] = useState(false);
+  const [generationStyle, setGenerationStyle] = useState("");
+  const [generationScene, setGenerationScene] = useState("");
+  const [generationFormat, setGenerationFormat] = useState("wav");
 
   useEffect(() => {
     return () => {
@@ -90,6 +103,36 @@ function AudioToolsPage() {
     }
   }
 
+  async function handleGenerate() {
+    if (!generationPrompt.trim()) {
+      setGenerationError(audioText.errors.emptyPrompt);
+      return;
+    }
+
+    setGenerating(true);
+    setGenerationError("");
+    setGeneratedResult(null);
+
+    try {
+      setGeneratedResult(
+        await generateAudio({
+          engine: generationEngine,
+          kind: generationKind,
+          prompt: generationPrompt,
+          duration: generationDuration,
+          loopable: generationLoopable,
+          style: generationStyle,
+          scene: generationScene,
+          output_format: generationFormat,
+        }),
+      );
+    } catch (err) {
+      setGenerationError(err.message || audioText.errors.generate);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <div className="page workspace-page audio-workspace-page">
       <WorkspaceHeader
@@ -101,6 +144,19 @@ function AudioToolsPage() {
         title={audioText.title}
       />
 
+      <section className="tabs-panel">
+        <PageTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { id: "local", icon: "audio", label: audioText.tabs.local },
+            { id: "generate", icon: "llm", label: audioText.tabs.generate },
+          ]}
+        />
+      </section>
+
+      {activeTab === "local" && (
+      <>
       <section className="panel primary-workspace-panel audio-upload-panel">
         <h2>{audioText.uploadTitle}</h2>
         <label
@@ -199,6 +255,113 @@ function AudioToolsPage() {
             )}
           </div>
         </section>
+      )}
+      </>
+      )}
+
+      {activeTab === "generate" && (
+      <>
+      <section className="panel primary-workspace-panel audio-generate-panel">
+        <div className="section-header-row">
+          <div>
+            <h2>{audioText.generateTitle}</h2>
+            <p>{audioText.generateIntro}</p>
+          </div>
+        </div>
+
+        <div className="settings-grid">
+          <label className="form-field">
+            <span>{audioText.assetKind}</span>
+            <select value={generationKind} onChange={(event) => setGenerationKind(event.target.value)}>
+              <option value="music">{audioText.music}</option>
+              <option value="sfx">{audioText.sfx}</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>{audioText.engine}</span>
+            <select value={generationEngine} onChange={(event) => setGenerationEngine(event.target.value)}>
+              <option value="custom_api">{audioText.customApi}</option>
+              <option value="comfyui">ComfyUI</option>
+            </select>
+          </label>
+          <NumberField label={audioText.durationSeconds} value={generationDuration} onChange={setGenerationDuration} step="0.1" />
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={generationLoopable}
+              onChange={(event) => setGenerationLoopable(event.target.checked)}
+            />
+            <span>{audioText.loopable}</span>
+          </label>
+          <label className="form-field span-4">
+            <span>{audioText.prompt}</span>
+            <textarea
+              rows={5}
+              value={generationPrompt}
+              onChange={(event) => setGenerationPrompt(event.target.value)}
+              placeholder={audioText.promptPlaceholder}
+            />
+          </label>
+          <label className="form-field span-2">
+            <span>{audioText.style}</span>
+            <input value={generationStyle} onChange={(event) => setGenerationStyle(event.target.value)} />
+          </label>
+          <label className="form-field span-2">
+            <span>{audioText.scene}</span>
+            <input value={generationScene} onChange={(event) => setGenerationScene(event.target.value)} />
+          </label>
+          <label className="form-field">
+            <span>{audioText.outputFormat}</span>
+            <select value={generationFormat} onChange={(event) => setGenerationFormat(event.target.value)}>
+              <option value="wav">WAV</option>
+              <option value="ogg">OGG</option>
+              <option value="mp3">MP3</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="hint-box">{audioText.generateHint}</div>
+
+        <div className="action-row">
+          <button onClick={handleGenerate} disabled={generating}>
+            {generating ? texts.common.generating : audioText.generate}
+          </button>
+        </div>
+        {generationError && <div className="error-box">{generationError}</div>}
+      </section>
+
+      {generatedResult && (
+        <section className="panel audio-result-panel">
+          <h2>{audioText.generatedResultTitle}</h2>
+          <div className="output-summary-grid">
+            <SummaryItem label={audioText.outputId} value={generatedResult.output_id} />
+            <SummaryItem label={audioText.assetKind} value={generatedResult.kind.toUpperCase()} />
+            <SummaryItem label={audioText.engine} value={generatedResult.engine} />
+            <SummaryItem label={audioText.outputFormat} value={generatedResult.format.toUpperCase()} />
+            <SummaryItem label={audioText.duration} value={formatSeconds(generatedResult.duration)} />
+          </div>
+
+          <div className="audio-preview-card">
+            <h3>{audioText.generatedPreview}</h3>
+            <AuthenticatedAudio path={generatedResult.audio_path} controls />
+          </div>
+
+          <div className="download-row">
+            <button onClick={() => downloadFile(generatedResult.audio_path)}>
+              {texts.common.download} {audioText.audioFile}
+            </button>
+            <button className="secondary-button" onClick={() => downloadFile(generatedResult.metadata_path)}>
+              {texts.common.download} Metadata
+            </button>
+            {generatedResult.zip_path && (
+              <button className="secondary-button" onClick={() => downloadFile(generatedResult.zip_path)}>
+                {texts.common.download} ZIP
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+      </>
       )}
     </div>
   );

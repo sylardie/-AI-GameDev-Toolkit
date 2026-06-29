@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 LLMProvider = Literal["openai", "deepseek", "qwen", "custom"]
 ImageProvider = Literal["none", "openai", "gemini", "custom"]
+AudioProvider = Literal["custom"]
 
 
 class LLMSettings(BaseModel):
@@ -30,6 +31,26 @@ class ComfyUISettings(BaseModel):
     negative_prompt_node_id: str = ""
     sampler_node_id: str = ""
     latent_node_id: str = ""
+    audio_workflows: Dict[str, "ComfyUIAudioWorkflowProfile"] = Field(
+        default_factory=lambda: {
+            "music": ComfyUIAudioWorkflowProfile(),
+            "sfx": ComfyUIAudioWorkflowProfile(),
+        }
+    )
+
+
+class ComfyUIAudioWorkflowProfile(BaseModel):
+    enabled: bool = False
+    workflow: Dict[str, Any] = Field(default_factory=dict)
+    prompt_node_id: str = ""
+    prompt_input_name: str = "text"
+    negative_prompt_node_id: str = ""
+    negative_prompt_input_name: str = "text"
+    seed_node_id: str = ""
+    seed_input_name: str = "seed"
+    duration_node_id: str = ""
+    duration_input_name: str = "duration"
+    output_kind: Literal["audio", "file"] = "audio"
 
 
 class ImageProviderSettings(BaseModel):
@@ -41,10 +62,20 @@ class ImageProviderSettings(BaseModel):
     timeout: int = Field(default=60, ge=5, le=300)
 
 
+class AudioProviderSettings(BaseModel):
+    enabled: bool = False
+    provider: AudioProvider = "custom"
+    api_base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    timeout: int = Field(default=120, ge=5, le=600)
+
+
 class LocalSettings(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     comfyui: ComfyUISettings = Field(default_factory=ComfyUISettings)
     image_provider: ImageProviderSettings = Field(default_factory=ImageProviderSettings)
+    audio_provider: AudioProviderSettings = Field(default_factory=AudioProviderSettings)
 
 
 class SecretState(BaseModel):
@@ -70,10 +101,20 @@ class ImageProviderSettingsPublic(BaseModel):
     api_key: SecretState
 
 
+class AudioProviderSettingsPublic(BaseModel):
+    enabled: bool
+    provider: AudioProvider
+    api_base_url: str
+    model: str
+    timeout: int
+    api_key: SecretState
+
+
 class LocalSettingsPublic(BaseModel):
     llm: LLMSettingsPublic
     comfyui: ComfyUISettings
     image_provider: ImageProviderSettingsPublic
+    audio_provider: AudioProviderSettingsPublic
 
 
 class LLMSettingsUpdate(BaseModel):
@@ -96,10 +137,21 @@ class ImageProviderSettingsUpdate(BaseModel):
     timeout: int = Field(default=60, ge=5, le=300)
 
 
+class AudioProviderSettingsUpdate(BaseModel):
+    enabled: bool = False
+    provider: AudioProvider = "custom"
+    api_base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    keep_existing_api_key: bool = True
+    timeout: int = Field(default=120, ge=5, le=600)
+
+
 class LocalSettingsUpdate(BaseModel):
     llm: LLMSettingsUpdate
     comfyui: ComfyUISettings
     image_provider: ImageProviderSettingsUpdate = Field(default_factory=ImageProviderSettingsUpdate)
+    audio_provider: AudioProviderSettingsUpdate = Field(default_factory=AudioProviderSettingsUpdate)
 
 
 class ConnectionTestResponse(BaseModel):

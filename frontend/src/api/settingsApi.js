@@ -43,3 +43,10 @@ export async function testImageProviderConnection() {
   });
   return handleJsonResponse(response);
 }
+
+export async function testAudioProviderConnection() {
+  const response = await apiFetch("/api/settings/audio-provider/test", {
+    method: "POST",
+  });
+  return handleJsonResponse(response);
+}

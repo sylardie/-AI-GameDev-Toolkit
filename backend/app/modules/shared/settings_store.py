@@ -11,6 +11,8 @@ from app.modules.shared.credential_crypto import (
     load_settings_key,
 )
 from app.schemas.settings import (
+    AudioProviderSettings,
+    AudioProviderSettingsPublic,
     ImageProviderSettings,
     ImageProviderSettingsPublic,
     LLMSettings,
@@ -24,6 +26,7 @@ from app.schemas.settings import (
 
 CONFIG_DIR = DATA_DIR / "config"
 SETTINGS_PATH = CONFIG_DIR / "local_settings.json"
+SECRET_PROVIDER_NAMES = ("llm", "image_provider", "audio_provider")
 
 
 def load_settings() -> LocalSettings:
@@ -39,7 +42,7 @@ def load_settings() -> LocalSettings:
         if migrated:
             _write_settings_data(data)
             _verify_secure_settings_file(settings_key)
-            for provider_name in ("llm", "image_provider"):
+            for provider_name in SECRET_PROVIDER_NAMES:
                 encrypted = data.get(provider_name, {}).get("api_key_encrypted")
                 if isinstance(encrypted, dict):
                     data[provider_name]["api_key"] = decrypt_credential(
@@ -67,11 +70,14 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
     current = load_settings()
     llm_api_key = update.llm.api_key.strip()
     image_api_key = update.image_provider.api_key.strip()
+    audio_api_key = update.audio_provider.api_key.strip()
 
     if not llm_api_key and update.llm.keep_existing_api_key:
         llm_api_key = current.llm.api_key
     if not image_api_key and update.image_provider.keep_existing_api_key:
         image_api_key = current.image_provider.api_key
+    if not audio_api_key and update.audio_provider.keep_existing_api_key:
+        audio_api_key = current.audio_provider.api_key
 
     settings = LocalSettings(
         llm=LLMSettings(
@@ -91,13 +97,21 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
             api_key=image_api_key,
             timeout=update.image_provider.timeout,
         ),
+        audio_provider=AudioProviderSettings(
+            enabled=update.audio_provider.enabled,
+            provider=update.audio_provider.provider,
+            api_base_url=update.audio_provider.api_base_url.strip().rstrip("/"),
+            model=update.audio_provider.model.strip(),
+            api_key=audio_api_key,
+            timeout=update.audio_provider.timeout,
+        ),
     )
 
     data = settings.model_dump()
     settings_key = load_settings_key()
     if settings_key:
-        _encrypt_provider_key(data["llm"], settings_key)
-        _encrypt_provider_key(data["image_provider"], settings_key)
+        for provider_name in SECRET_PROVIDER_NAMES:
+            _encrypt_provider_key(data[provider_name], settings_key)
     _write_settings_data(data)
 
     return settings
@@ -129,6 +143,17 @@ def public_settings(settings: LocalSettings | None = None) -> LocalSettingsPubli
                 preview=_secret_preview(settings.image_provider.api_key),
             ),
         ),
+        audio_provider=AudioProviderSettingsPublic(
+            enabled=settings.audio_provider.enabled,
+            provider=settings.audio_provider.provider,
+            api_base_url=settings.audio_provider.api_base_url,
+            model=settings.audio_provider.model,
+            timeout=settings.audio_provider.timeout,
+            api_key=SecretState(
+                configured=bool(settings.audio_provider.api_key),
+                preview=_secret_preview(settings.audio_provider.api_key),
+            ),
+        ),
     )
 
 
@@ -142,7 +167,7 @@ def _secret_preview(value: str) -> str:
 
 def _decrypt_or_migrate_provider_keys(data: dict, settings_key: bytes) -> bool:
     migrated = False
-    for provider_name in ("llm", "image_provider"):
+    for provider_name in SECRET_PROVIDER_NAMES:
         provider = data.setdefault(provider_name, {})
         encrypted = provider.get("api_key_encrypted")
         plaintext = str(provider.get("api_key", ""))
@@ -172,7 +197,7 @@ def _contains_encrypted_keys(data: dict) -> bool:
     return any(
         isinstance(data.get(provider_name), dict)
         and isinstance(data[provider_name].get("api_key_encrypted"), dict)
-        for provider_name in ("llm", "image_provider")
+        for provider_name in SECRET_PROVIDER_NAMES
     )
 
 
@@ -206,7 +231,7 @@ def _write_settings_data(data: dict) -> None:
 def _verify_secure_settings_file(settings_key: bytes) -> None:
     with SETTINGS_PATH.open("r", encoding="utf-8") as file:
         data = json.load(file)
-    for provider_name in ("llm", "image_provider"):
+    for provider_name in SECRET_PROVIDER_NAMES:
         encrypted = data.get(provider_name, {}).get("api_key_encrypted")
         if isinstance(encrypted, dict):
             decrypt_credential(encrypted, settings_key)

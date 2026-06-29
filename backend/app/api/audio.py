@@ -3,8 +3,10 @@ from tempfile import NamedTemporaryFile
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from app.modules.art_pipeline.audio_generator import AudioGenerateError, generate_audio
 from app.modules.art_pipeline.audio_processor import AudioProcessError, process_audio_file
-from app.schemas.audio import AudioOutputFormat, AudioProcessResponse
+from app.modules.shared.settings_store import load_settings
+from app.schemas.audio import AudioGenerateRequest, AudioGenerateResponse, AudioOutputFormat, AudioProcessResponse
 from app.modules.shared.uploads import UploadTooLargeError, copy_upload_with_limit
 
 
@@ -51,6 +53,19 @@ def process_audio(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         Path(temp_path).unlink(missing_ok=True)
+
+
+@router.post("/generate", response_model=AudioGenerateResponse)
+def generate_audio_asset(request: AudioGenerateRequest):
+    settings = load_settings()
+    try:
+        return generate_audio(
+            request=request,
+            audio_settings=settings.audio_provider,
+            comfyui_settings=settings.comfyui,
+        )
+    except AudioGenerateError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _safe_audio_suffix(filename: str) -> str:

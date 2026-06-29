@@ -16,6 +16,7 @@ from app.modules.shared.credential_crypto import (
     encrypt_credential,
 )
 from app.schemas.settings import (
+    AudioProviderSettingsUpdate,
     ComfyUISettings,
     ImageProviderSettingsUpdate,
     LLMSettingsUpdate,
@@ -82,12 +83,16 @@ class LocalSecurityTests(unittest.TestCase):
             raw = json.loads(settings_path.read_text(encoding="utf-8"))
             self.assertNotIn("api_key", raw["llm"])
             self.assertNotIn("api_key", raw["image_provider"])
+            self.assertNotIn("api_key", raw["audio_provider"])
             self.assertIn("api_key_encrypted", raw["llm"])
+            self.assertIn("api_key_encrypted", raw["audio_provider"])
             self.assertNotIn("llm-secret", settings_path.read_text(encoding="utf-8"))
+            self.assertNotIn("audio-secret", settings_path.read_text(encoding="utf-8"))
 
             loaded = settings_store.load_settings()
             self.assertEqual(loaded.llm.api_key, "llm-secret")
             self.assertEqual(loaded.image_provider.api_key, "image-secret")
+            self.assertEqual(loaded.audio_provider.api_key, "audio-secret")
             self.assertEqual(len(key), 32)
 
     def test_legacy_plaintext_keys_are_migrated_atomically(self):
@@ -181,6 +186,15 @@ class LocalSecurityTests(unittest.TestCase):
                 api_key="image-secret",
                 keep_existing_api_key=False,
                 timeout=60,
+            ),
+            audio_provider=AudioProviderSettingsUpdate(
+                enabled=True,
+                provider="custom",
+                api_base_url="https://audio.example.com/generate",
+                model="audio-model",
+                api_key="audio-secret",
+                keep_existing_api_key=False,
+                timeout=120,
             ),
         )
 

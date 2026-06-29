@@ -16,3 +16,15 @@ export async function processAudio(payload) {
 
   return handleJsonResponse(response);
 }
+
+export async function generateAudio(payload) {
+  const response = await apiFetch("/api/audio/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleJsonResponse(response);
+}

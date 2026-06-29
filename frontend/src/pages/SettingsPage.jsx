@@ -5,6 +5,7 @@ import {
   saveSettings,
   testComfyConnection,
   testComfyWorkflow,
+  testAudioProviderConnection,
   testImageProviderConnection,
   testLlmConnection,
 } from "../api/settingsApi";
@@ -36,6 +37,10 @@ const emptySettings = {
     negative_prompt_node_id: "",
     sampler_node_id: "",
     latent_node_id: "",
+    audio_workflows: {
+      music: createEmptyAudioWorkflow(),
+      sfx: createEmptyAudioWorkflow(),
+    },
   },
   image_provider: {
     enabled: false,
@@ -46,7 +51,32 @@ const emptySettings = {
     keep_existing_api_key: true,
     timeout: 60,
   },
+  audio_provider: {
+    enabled: false,
+    provider: "custom",
+    api_base_url: "",
+    model: "",
+    api_key: "",
+    keep_existing_api_key: true,
+    timeout: 120,
+  },
 };
+
+function createEmptyAudioWorkflow() {
+  return {
+    enabled: false,
+    workflow: {},
+    prompt_node_id: "",
+    prompt_input_name: "text",
+    negative_prompt_node_id: "",
+    negative_prompt_input_name: "text",
+    seed_node_id: "",
+    seed_input_name: "seed",
+    duration_node_id: "",
+    duration_input_name: "duration",
+    output_kind: "audio",
+  };
+}
 
 const IMAGE_PROVIDER_PRESETS = {
   none: {
@@ -73,11 +103,13 @@ function SettingsPage() {
   const [form, setForm] = useState(emptySettings);
   const [apiKeyState, setApiKeyState] = useState({ configured: false, preview: "" });
   const [imageApiKeyState, setImageApiKeyState] = useState({ configured: false, preview: "" });
+  const [audioApiKeyState, setAudioApiKeyState] = useState({ configured: false, preview: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState("");
   const [testResults, setTestResults] = useState({});
   const [workflowFileName, setWorkflowFileName] = useState("");
+  const [audioWorkflowFileNames, setAudioWorkflowFileNames] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("llm");
@@ -101,9 +133,15 @@ function SettingsPage() {
             api_key: "",
             keep_existing_api_key: true,
           },
+          audio_provider: {
+            ...data.audio_provider,
+            api_key: "",
+            keep_existing_api_key: true,
+          },
         });
         setApiKeyState(data.llm.api_key);
         setImageApiKeyState(data.image_provider.api_key);
+        setAudioApiKeyState(data.audio_provider.api_key);
       } catch (err) {
         if (active) setError(err.message || settingsText.loadError);
       } finally {
@@ -136,9 +174,15 @@ function SettingsPage() {
           api_key: "",
           keep_existing_api_key: true,
         },
+        audio_provider: {
+          ...data.audio_provider,
+          api_key: "",
+          keep_existing_api_key: true,
+        },
       });
       setApiKeyState(data.llm.api_key);
       setImageApiKeyState(data.image_provider.api_key);
+      setAudioApiKeyState(data.audio_provider.api_key);
       setMessage(texts.common.saved);
     } catch (err) {
       setError(err.message || settingsText.saveError);
@@ -162,9 +206,11 @@ function SettingsPage() {
           ? await testLlmConnection()
           : kind === "image"
             ? await testImageProviderConnection()
-            : kind === "workflow"
-              ? await testComfyWorkflow()
-              : await testComfyConnection();
+            : kind === "audio"
+              ? await testAudioProviderConnection()
+              : kind === "workflow"
+                ? await testComfyWorkflow()
+                : await testComfyConnection();
       if (result.ok) {
         setTestResults((current) => ({
           ...current,
@@ -221,6 +267,34 @@ function SettingsPage() {
     }));
   }
 
+  function updateAudioProvider(key, value) {
+    setForm((current) => ({
+      ...current,
+      audio_provider: {
+        ...current.audio_provider,
+        [key]: value,
+        ...(key === "api_key" ? { keep_existing_api_key: value.length === 0 } : {}),
+      },
+    }));
+  }
+
+  function updateAudioWorkflow(kind, key, value) {
+    setForm((current) => ({
+      ...current,
+      comfyui: {
+        ...current.comfyui,
+        audio_workflows: {
+          ...current.comfyui.audio_workflows,
+          [kind]: {
+            ...createEmptyAudioWorkflow(),
+            ...(current.comfyui.audio_workflows?.[kind] || {}),
+            [key]: value,
+          },
+        },
+      },
+    }));
+  }
+
   async function handleWorkflowFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -239,6 +313,31 @@ function SettingsPage() {
 
       updateComfy("workflow", workflow);
       setWorkflowFileName(file.name);
+      setMessage(settingsText.comfyWorkflowImported.replace("{count}", Object.keys(workflow).length));
+    } catch (err) {
+      setError(err.message || settingsText.comfyWorkflowInvalid);
+      event.target.value = "";
+    }
+  }
+
+  async function handleAudioWorkflowFile(kind, event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setMessage("");
+
+    try {
+      const workflow = JSON.parse(await file.text());
+      if (!workflow || Array.isArray(workflow) || typeof workflow !== "object") {
+        throw new Error(settingsText.comfyWorkflowInvalid);
+      }
+      if ("nodes" in workflow) {
+        throw new Error(settingsText.comfyWorkflowUiFormat);
+      }
+
+      updateAudioWorkflow(kind, "workflow", workflow);
+      setAudioWorkflowFileNames((current) => ({ ...current, [kind]: file.name }));
       setMessage(settingsText.comfyWorkflowImported.replace("{count}", Object.keys(workflow).length));
     } catch (err) {
       setError(err.message || settingsText.comfyWorkflowInvalid);
@@ -267,6 +366,7 @@ function SettingsPage() {
           tabs={[
             { id: "llm", icon: "llm", label: settingsText.llmTitle },
             { id: "image", icon: "image", label: settingsText.imageProviderTitle },
+            { id: "audio", icon: "audio", label: settingsText.audioProviderTitle },
             { id: "comfy", icon: "comfy", label: settingsText.comfyTitle },
           ]}
         />
@@ -324,6 +424,76 @@ function SettingsPage() {
             {testing === "llm" ? texts.common.testing : `${texts.common.test} LLM`}
           </button>
           <ConnectionTestStatus result={testResults.llm} texts={settingsText} />
+        </div>
+        <div className="scan-note compact-note">{settingsText.secretStorageHint}</div>
+      </section>
+      )}
+
+      {activeTab === "audio" && (
+      <section className="panel">
+        <div className="section-header-row">
+          <div>
+            <h2>{settingsText.audioProviderTitle}</h2>
+            <p>{settingsText.audioProviderHint}</p>
+          </div>
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={form.audio_provider.enabled}
+              onChange={(event) => updateAudioProvider("enabled", event.target.checked)}
+            />
+            <span>{settingsText.enabled}</span>
+          </label>
+        </div>
+
+        <div className="settings-grid">
+          <label className="form-field">
+            <span>{settingsText.provider}</span>
+            <select
+              value={form.audio_provider.provider}
+              onChange={(event) => updateAudioProvider("provider", event.target.value)}
+            >
+              <option value="custom">Custom Audio API</option>
+            </select>
+          </label>
+          <label className="form-field span-2">
+            <span>{settingsText.baseUrl}</span>
+            <input
+              value={form.audio_provider.api_base_url}
+              onChange={(event) => updateAudioProvider("api_base_url", event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>{settingsText.model}</span>
+            <input
+              value={form.audio_provider.model}
+              onChange={(event) => updateAudioProvider("model", event.target.value)}
+            />
+          </label>
+          <NumberField
+            label={settingsText.timeout}
+            value={form.audio_provider.timeout}
+            onChange={(value) => updateAudioProvider("timeout", value)}
+          />
+          <label className="form-field span-4">
+            <span>
+              {settingsText.apiKey} · {settingsText.keyConfigured}
+              {audioApiKeyState.configured ? audioApiKeyState.preview : "No"}
+            </span>
+            <input
+              type="password"
+              value={form.audio_provider.api_key}
+              onChange={(event) => updateAudioProvider("api_key", event.target.value)}
+              placeholder={settingsText.apiKeyPlaceholder}
+            />
+          </label>
+        </div>
+
+        <div className="action-row">
+          <button className="secondary-button" onClick={() => runTest("audio")} disabled={testing === "audio"}>
+            {testing === "audio" ? texts.common.testing : `${texts.common.test} Audio Provider`}
+          </button>
+          <ConnectionTestStatus result={testResults.audio} texts={settingsText} />
         </div>
         <div className="scan-note compact-note">{settingsText.secretStorageHint}</div>
       </section>
@@ -486,6 +656,27 @@ function SettingsPage() {
           </div>
         </div>
 
+        <div className="comfy-workflow-card">
+          <div className="block-header">
+            <h3>{settingsText.comfyAudioWorkflowsTitle}</h3>
+            <span>{settingsText.comfyAudioWorkflowsHint}</span>
+          </div>
+          {["music", "sfx"].map((kind) => (
+            <AudioWorkflowProfileEditor
+              key={kind}
+              kind={kind}
+              profile={{
+                ...createEmptyAudioWorkflow(),
+                ...(form.comfyui.audio_workflows?.[kind] || {}),
+              }}
+              fileName={audioWorkflowFileNames[kind]}
+              labels={settingsText}
+              onChange={(key, value) => updateAudioWorkflow(kind, key, value)}
+              onFile={(event) => handleAudioWorkflowFile(kind, event)}
+            />
+          ))}
+        </div>
+
         <div className="action-row">
           <button className="secondary-button" onClick={() => runTest("comfy")} disabled={testing === "comfy"}>
             {testing === "comfy" ? texts.common.testing : `${texts.common.test} ComfyUI`}
@@ -537,6 +728,52 @@ function TextField({ label, value, onChange }) {
       <span>{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
+  );
+}
+
+function AudioWorkflowProfileEditor({ kind, profile, fileName, labels, onChange, onFile }) {
+  const loadedCount = Object.keys(profile.workflow || {}).length;
+  const title = kind === "music" ? labels.comfyMusicWorkflow : labels.comfySfxWorkflow;
+
+  return (
+    <div className="compact-card audio-workflow-profile">
+      <div className="section-header-row">
+        <div>
+          <h4>{title}</h4>
+          <p>
+            {loadedCount > 0
+              ? labels.comfyWorkflowLoaded.replace("{count}", loadedCount)
+              : labels.comfyWorkflowMissing}
+          </p>
+        </div>
+        <label className="toggle-field">
+          <input type="checkbox" checked={profile.enabled} onChange={(event) => onChange("enabled", event.target.checked)} />
+          <span>{labels.enabled}</span>
+        </label>
+      </div>
+      <label className="workflow-file-input">
+        <span>{labels.comfyImportWorkflow}</span>
+        <input type="file" accept=".json,application/json" onChange={onFile} />
+      </label>
+      {fileName && <p className="workflow-file-name">{fileName}</p>}
+      <div className="settings-grid audio-workflow-grid">
+        <TextField label={labels.comfyAudioPromptNode} value={profile.prompt_node_id} onChange={(value) => onChange("prompt_node_id", value)} />
+        <TextField label={labels.comfyAudioPromptInput} value={profile.prompt_input_name} onChange={(value) => onChange("prompt_input_name", value)} />
+        <TextField label={labels.comfyAudioNegativeNode} value={profile.negative_prompt_node_id} onChange={(value) => onChange("negative_prompt_node_id", value)} />
+        <TextField label={labels.comfyAudioNegativeInput} value={profile.negative_prompt_input_name} onChange={(value) => onChange("negative_prompt_input_name", value)} />
+        <TextField label={labels.comfyAudioSeedNode} value={profile.seed_node_id} onChange={(value) => onChange("seed_node_id", value)} />
+        <TextField label={labels.comfyAudioSeedInput} value={profile.seed_input_name} onChange={(value) => onChange("seed_input_name", value)} />
+        <TextField label={labels.comfyAudioDurationNode} value={profile.duration_node_id} onChange={(value) => onChange("duration_node_id", value)} />
+        <TextField label={labels.comfyAudioDurationInput} value={profile.duration_input_name} onChange={(value) => onChange("duration_input_name", value)} />
+        <label className="form-field">
+          <span>{labels.comfyAudioOutputKind}</span>
+          <select value={profile.output_kind} onChange={(event) => onChange("output_kind", event.target.value)}>
+            <option value="audio">Audio</option>
+            <option value="file">File</option>
+          </select>
+        </label>
+      </div>
+    </div>
   );
 }
 
