@@ -7,6 +7,7 @@ import ConfigManagerPage from "./pages/ConfigManagerPage";
 import CodeAgentPage from "./pages/CodeAgentPage";
 import ArtPipelinePage from "./pages/ArtPipelinePage";
 import AssetToolsPage from "./pages/AssetToolsPage";
+import AudioGeneratorPage from "./pages/AudioGeneratorPage";
 import AudioToolsPage from "./pages/AudioToolsPage";
 import SettingsPage from "./pages/SettingsPage";
 
@@ -45,7 +46,7 @@ const router = createBrowserRouter([
       },
       {
         path: "audio-generator",
-        element: <AudioToolsPage initialTab="generate" />,
+        element: <AudioGeneratorPage />,
       },
       {
         path: "settings",

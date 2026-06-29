@@ -31,8 +31,10 @@ const iconPaths = {
   audio: <path d="M4 13h2l2-6 3 12 3-14 3 10 2-4h2" />,
   audioGenerator: (
     <>
-      <path d="M4 13h2l2-6 3 12 3-14 3 10 2-4h2" />
-      <path d="m18 3 .55 1.45L20 5l-1.45.55L18 7l-.55-1.45L16 5l1.45-.55L18 3Z" />
+      <path d="M9 18V6l9-2v12" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="15" cy="16" r="3" />
+      <path d="m19 4 .55 1.45L21 6l-1.45.55L19 8l-.55-1.45L17 6l1.45-.55L19 4Z" />
     </>
   ),
   folder: <path d="M3 6h7l2 2h9v11H3z" />,
