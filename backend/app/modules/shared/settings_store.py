@@ -3,7 +3,13 @@ import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from app.core.config import DATA_DIR
+from app.core.config import (
+    CONFIG_DIR,
+    DEFAULT_DATA_DIR,
+    ensure_app_dirs,
+    get_data_root,
+    set_configured_data_root,
+)
 from app.modules.shared.credential_crypto import (
     CredentialEncryptionError,
     decrypt_credential,
@@ -21,20 +27,24 @@ from app.schemas.settings import (
     LocalSettingsPublic,
     LocalSettingsUpdate,
     SecretState,
+    StorageSettings,
 )
 
 
-CONFIG_DIR = DATA_DIR / "config"
 SETTINGS_PATH = CONFIG_DIR / "local_settings.json"
 SECRET_PROVIDER_NAMES = ("llm", "image_provider", "audio_provider")
 
 
 def load_settings() -> LocalSettings:
     if not SETTINGS_PATH.exists():
-        return LocalSettings()
+        return LocalSettings(storage=StorageSettings(data_root=str(get_data_root())))
 
     with SETTINGS_PATH.open("r", encoding="utf-8") as file:
         data = json.load(file)
+
+    data.setdefault("storage", {})
+    if not str(data["storage"].get("data_root", "")).strip():
+        data["storage"]["data_root"] = str(get_data_root())
 
     settings_key = load_settings_key()
     if settings_key:
@@ -71,6 +81,7 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
     llm_api_key = update.llm.api_key.strip()
     image_api_key = update.image_provider.api_key.strip()
     audio_api_key = update.audio_provider.api_key.strip()
+    requested_data_root = update.storage.data_root.strip() or str(get_data_root())
 
     if not llm_api_key and update.llm.keep_existing_api_key:
         llm_api_key = current.llm.api_key
@@ -78,6 +89,10 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
         image_api_key = current.image_provider.api_key
     if not audio_api_key and update.audio_provider.keep_existing_api_key:
         audio_api_key = current.audio_provider.api_key
+
+    if not os.getenv("AI_GAMEDEV_DATA_DIR", "").strip():
+        set_configured_data_root(requested_data_root)
+        ensure_app_dirs()
 
     settings = LocalSettings(
         llm=LLMSettings(
@@ -105,6 +120,7 @@ def save_settings(update: LocalSettingsUpdate) -> LocalSettings:
             api_key=audio_api_key,
             timeout=update.audio_provider.timeout,
         ),
+        storage=StorageSettings(data_root=str(get_data_root())),
     )
 
     data = settings.model_dump()
@@ -154,6 +170,10 @@ def public_settings(settings: LocalSettings | None = None) -> LocalSettingsPubli
                 preview=_secret_preview(settings.audio_provider.api_key),
             ),
         ),
+        storage=StorageSettings(data_root=str(get_data_root())),
+        default_data_root=str(DEFAULT_DATA_DIR),
+        active_data_root=str(get_data_root()),
+        storage_env_override=bool(os.getenv("AI_GAMEDEV_DATA_DIR", "").strip()),
     )
 
 

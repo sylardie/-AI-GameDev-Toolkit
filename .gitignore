@@ -29,6 +29,7 @@ Thumbs.db
 backend/app/data/outputs/
 backend/app/data/traces/
 backend/app/data/config/
+backend/app/data/prompts/
 
 # Logs
 *.log

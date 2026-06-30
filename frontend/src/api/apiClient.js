@@ -19,10 +19,15 @@ export async function apiFetch(path, options = {}) {
     headers.set("X-AI-Toolkit-Token", token);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    throw new Error("Local backend is not connected. Start or restart the backend service.");
+  }
 
   if (response.status === 401) {
     throw new Error(

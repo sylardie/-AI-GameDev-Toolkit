@@ -593,6 +593,11 @@
     color: #cbd5e1 !important;
   }
 
+  .danger-button {
+    background: rgba(127, 29, 29, 0.72) !important;
+    color: #fecaca !important;
+  }
+
   .connection-status {
     display: inline-flex;
     align-items: center;
@@ -1345,6 +1350,131 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(130px, 1fr));
     gap: 10px;
+  }
+
+  .audio-generate-panel .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audio-generate-panel .form-field,
+  .audio-generate-panel .toggle-field {
+    min-width: 0;
+  }
+
+  .audio-generate-panel .span-2,
+  .audio-generate-panel .span-4 {
+    grid-column: 1 / -1;
+  }
+
+  .audio-generate-panel textarea {
+    max-width: 100%;
+  }
+
+  .prompt-library-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .prompt-list-panel,
+  .prompt-editor-panel {
+    margin: 0;
+  }
+
+  .prompt-list {
+    display: grid;
+    gap: 8px;
+    max-height: 680px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .prompt-list-item {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #cbd5e1;
+    padding: 10px 11px;
+    text-align: left;
+  }
+
+  .prompt-list-item.active {
+    border-color: rgba(56, 189, 248, 0.58);
+    background: rgba(14, 165, 233, 0.1);
+  }
+
+  .prompt-list-item strong,
+  .prompt-list-item span,
+  .prompt-list-item small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .prompt-list-item strong {
+    color: #f8fafc;
+  }
+
+  .prompt-list-item span {
+    color: #93c5fd;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .prompt-list-item small {
+    color: #64748b;
+  }
+
+  .prompt-editor-actions {
+    margin-top: 0;
+  }
+
+  .prompt-library-page .block-header .secondary-button,
+  .prompt-editor-actions button {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-weight: 700;
+  }
+
+  .storage-folder-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .storage-path-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .storage-path-control button {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .storage-path-control button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .storage-folder-list span {
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    border-radius: 999px;
+    background: rgba(14, 165, 233, 0.08);
+    color: #bae6fd;
+    padding: 6px 10px;
+    font-weight: 800;
   }
 
   .compact-fields-2,

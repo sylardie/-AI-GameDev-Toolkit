@@ -90,7 +90,7 @@ async function ensureBackend() {
   const backendCwd = app.isPackaged ? path.dirname(backendExecutable) : BACKEND_DIR;
   const backendEnv = {
     ...process.env,
-    AI_GAMEDEV_DATA_DIR: path.join(app.getPath("userData"), "data"),
+    AI_GAMEDEV_DEFAULT_DATA_DIR: path.join(app.getPath("userData"), "data"),
     AI_GAMEDEV_API_TOKEN: apiToken,
     AI_GAMEDEV_SETTINGS_KEY: settingsKey,
   };

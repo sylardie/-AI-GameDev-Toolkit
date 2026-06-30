@@ -9,6 +9,7 @@ import {
   testImageProviderConnection,
   testLlmConnection,
 } from "../api/settingsApi";
+import { chooseFolder, isDesktopRuntime } from "../api/desktopApi";
 import PageTabs from "../components/PageTabs";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useI18n } from "../i18n/useI18n";
@@ -60,6 +61,9 @@ const emptySettings = {
     keep_existing_api_key: true,
     timeout: 120,
   },
+  storage: {
+    data_root: "",
+  },
 };
 
 function createEmptyAudioWorkflow() {
@@ -99,11 +103,43 @@ const IMAGE_PROVIDER_PRESETS = {
 
 function SettingsPage() {
   const { texts } = useI18n();
-  const settingsText = texts.settings;
+  const isChinese = texts.sidebar.groups.overview !== "Overview";
+  const storageText = isChinese ? {
+    storageTitle: "存储",
+    storageIntro: "选择一个本地应用数据根目录。后端会在其中自动创建 outputs、traces、config 和 prompts 文件夹。",
+    dataRoot: "数据根目录",
+    chooseDataRoot: "选择文件夹",
+    activeDataRoot: "当前数据根目录",
+    defaultDataRoot: "默认数据根目录",
+    envOverride: "环境变量覆盖",
+    disabled: "关闭",
+    storageHint: "修改路径不会自动迁移旧文件。保存后，新的输出、配置、追踪和提示词会写入新的数据根目录。",
+    storageEnvHint: "当前设置了 AI_GAMEDEV_DATA_DIR 环境变量，因此活动数据根目录由环境变量控制。",
+  } : {
+    storageTitle: "Storage",
+    storageIntro: "Choose one local application data root. The backend creates outputs, traces, config, and prompts folders under it.",
+    dataRoot: "Data Root",
+    chooseDataRoot: "Choose Folder",
+    activeDataRoot: "Active Data Root",
+    defaultDataRoot: "Default Data Root",
+    envOverride: "Environment Override",
+    disabled: "Disabled",
+    storageHint: "Changing this path does not migrate old files. New outputs, config, traces, and prompts use the new root after saving.",
+    storageEnvHint: "AI_GAMEDEV_DATA_DIR is set, so the environment variable controls the active data root.",
+  };
+  const settingsText = {
+    ...storageText,
+    ...texts.settings,
+  };
   const [form, setForm] = useState(emptySettings);
   const [apiKeyState, setApiKeyState] = useState({ configured: false, preview: "" });
   const [imageApiKeyState, setImageApiKeyState] = useState({ configured: false, preview: "" });
   const [audioApiKeyState, setAudioApiKeyState] = useState({ configured: false, preview: "" });
+  const [storageMeta, setStorageMeta] = useState({
+    active_data_root: "",
+    default_data_root: "",
+    storage_env_override: false,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState("");
@@ -138,10 +174,16 @@ function SettingsPage() {
             api_key: "",
             keep_existing_api_key: true,
           },
+          storage: data.storage,
         });
         setApiKeyState(data.llm.api_key);
         setImageApiKeyState(data.image_provider.api_key);
         setAudioApiKeyState(data.audio_provider.api_key);
+        setStorageMeta({
+          active_data_root: data.active_data_root,
+          default_data_root: data.default_data_root,
+          storage_env_override: data.storage_env_override,
+        });
       } catch (err) {
         if (active) setError(err.message || settingsText.loadError);
       } finally {
@@ -179,10 +221,16 @@ function SettingsPage() {
           api_key: "",
           keep_existing_api_key: true,
         },
+        storage: data.storage,
       });
       setApiKeyState(data.llm.api_key);
       setImageApiKeyState(data.image_provider.api_key);
       setAudioApiKeyState(data.audio_provider.api_key);
+      setStorageMeta({
+        active_data_root: data.active_data_root,
+        default_data_root: data.default_data_root,
+        storage_env_override: data.storage_env_override,
+      });
       setMessage(texts.common.saved);
     } catch (err) {
       setError(err.message || settingsText.saveError);
@@ -278,6 +326,23 @@ function SettingsPage() {
     }));
   }
 
+  function updateStorage(key, value) {
+    setForm((current) => ({
+      ...current,
+      storage: {
+        ...current.storage,
+        [key]: value,
+      },
+    }));
+  }
+
+  async function handleChooseDataRoot() {
+    if (!isDesktopRuntime() || storageMeta.storage_env_override) return;
+    const selectedPath = await chooseFolder(settingsText.chooseDataRoot);
+    if (!selectedPath) return;
+    updateStorage("data_root", selectedPath);
+  }
+
   function updateAudioWorkflow(kind, key, value) {
     setForm((current) => ({
       ...current,
@@ -368,6 +433,7 @@ function SettingsPage() {
             { id: "image", icon: "image", label: settingsText.imageProviderTitle },
             { id: "audio", icon: "audio", label: settingsText.audioProviderTitle },
             { id: "comfy", icon: "comfy", label: settingsText.comfyTitle },
+            { id: "storage", icon: "folder", label: settingsText.storageTitle },
           ]}
         />
       </section>
@@ -572,6 +638,56 @@ function SettingsPage() {
       </section>
       )}
 
+      {activeTab === "storage" && (
+      <section className="panel">
+        <div className="section-header-row">
+          <div>
+            <h2>{settingsText.storageTitle}</h2>
+            <p>{settingsText.storageIntro}</p>
+          </div>
+        </div>
+
+        <div className="settings-grid">
+          <label className="form-field span-4">
+            <span>{settingsText.dataRoot}</span>
+            <div className="storage-path-control">
+              <input
+                value={form.storage.data_root}
+                disabled={storageMeta.storage_env_override}
+                onChange={(event) => updateStorage("data_root", event.target.value)}
+                placeholder={storageMeta.default_data_root}
+              />
+              {isDesktopRuntime() && (
+                <button
+                  className="secondary-button"
+                  disabled={storageMeta.storage_env_override}
+                  onClick={handleChooseDataRoot}
+                  type="button"
+                >
+                  {settingsText.chooseDataRoot}
+                </button>
+              )}
+            </div>
+          </label>
+          <ReadOnlySetting label={settingsText.activeDataRoot} value={storageMeta.active_data_root} />
+          <ReadOnlySetting label={settingsText.defaultDataRoot} value={storageMeta.default_data_root} />
+          <ReadOnlySetting
+            label={settingsText.envOverride}
+            value={storageMeta.storage_env_override ? settingsText.enabled : settingsText.disabled}
+          />
+        </div>
+
+        <div className="storage-folder-list">
+          {["outputs", "traces", "config", "prompts"].map((folder) => (
+            <span key={folder}>{folder}/</span>
+          ))}
+        </div>
+        <div className="scan-note compact-note">
+          {storageMeta.storage_env_override ? settingsText.storageEnvHint : settingsText.storageHint}
+        </div>
+      </section>
+      )}
+
       {activeTab === "comfy" && (
       <section className="panel">
         <div className="section-header-row">
@@ -727,6 +843,15 @@ function TextField({ label, value, onChange }) {
     <label className="form-field">
       <span>{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function ReadOnlySetting({ label, value }) {
+  return (
+    <label className="form-field span-2">
+      <span>{label}</span>
+      <input value={value || ""} readOnly />
     </label>
   );
 }

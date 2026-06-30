@@ -15,6 +15,7 @@ const navGroups = [
       ["/code", "code", "local"],
       ["/assets", "assets", "local"],
       ["/audio", "audio", "local"],
+      ["/prompts", "prompts", "local"],
     ],
   },
   {
@@ -33,6 +34,7 @@ const navGroups = [
 
 function Sidebar() {
   const { texts } = useI18n();
+  const isChinese = texts.sidebar.groups.overview !== "Overview";
 
   return (
     <aside className="sidebar">
@@ -51,7 +53,11 @@ function Sidebar() {
           <div className="nav-group" key={group.key}>
             <div className="nav-group-title">{texts.sidebar.groups[group.key]}</div>
             {group.items.map(([path, key, capability]) => {
-              const [label, desc] = texts.sidebar.nav[key];
+              const [label, desc] =
+                texts.sidebar.nav[key] ||
+                (isChinese
+                  ? ["\u63d0\u793a\u8bcd\u4ed3\u5e93", "\u53ef\u590d\u7528\u63d0\u793a\u8bcd"]
+                  : ["Prompt Library", "Reusable prompts"]);
 
               return (
                 <NavLink

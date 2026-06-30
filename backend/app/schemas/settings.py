@@ -71,11 +71,16 @@ class AudioProviderSettings(BaseModel):
     timeout: int = Field(default=120, ge=5, le=600)
 
 
+class StorageSettings(BaseModel):
+    data_root: str = ""
+
+
 class LocalSettings(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     comfyui: ComfyUISettings = Field(default_factory=ComfyUISettings)
     image_provider: ImageProviderSettings = Field(default_factory=ImageProviderSettings)
     audio_provider: AudioProviderSettings = Field(default_factory=AudioProviderSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
 
 
 class SecretState(BaseModel):
@@ -115,6 +120,10 @@ class LocalSettingsPublic(BaseModel):
     comfyui: ComfyUISettings
     image_provider: ImageProviderSettingsPublic
     audio_provider: AudioProviderSettingsPublic
+    storage: StorageSettings
+    default_data_root: str
+    active_data_root: str
+    storage_env_override: bool
 
 
 class LLMSettingsUpdate(BaseModel):
@@ -152,6 +161,7 @@ class LocalSettingsUpdate(BaseModel):
     comfyui: ComfyUISettings
     image_provider: ImageProviderSettingsUpdate = Field(default_factory=ImageProviderSettingsUpdate)
     audio_provider: AudioProviderSettingsUpdate = Field(default_factory=AudioProviderSettingsUpdate)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
 
 
 class ConnectionTestResponse(BaseModel):

@@ -37,6 +37,7 @@ const iconPaths = {
       <path d="m19 4 .55 1.45L21 6l-1.45.55L19 8l-.55-1.45L17 6l1.45-.55L19 4Z" />
     </>
   ),
+  prompts: <path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5M16 3v4M8 3v4" />,
   folder: <path d="M3 6h7l2 2h9v11H3z" />,
   file: <path d="M6 2h9l4 4v16H6zM15 2v5h5" />,
   search: (

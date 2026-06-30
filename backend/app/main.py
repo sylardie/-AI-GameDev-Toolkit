@@ -14,6 +14,7 @@ from app.api.art import router as art_router
 from app.api.assets import router as assets_router
 from app.api.audio import router as audio_router
 from app.api.files import router as files_router
+from app.api.prompts import router as prompts_router
 from app.api.settings import router as settings_router
 
 
@@ -57,6 +58,7 @@ app.include_router(configs_router)
 app.include_router(art_router)
 app.include_router(assets_router)
 app.include_router(audio_router)
+app.include_router(prompts_router)
 app.include_router(files_router)
 app.include_router(settings_router)
 

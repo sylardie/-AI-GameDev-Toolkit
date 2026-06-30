@@ -9,6 +9,7 @@ import ArtPipelinePage from "./pages/ArtPipelinePage";
 import AssetToolsPage from "./pages/AssetToolsPage";
 import AudioGeneratorPage from "./pages/AudioGeneratorPage";
 import AudioToolsPage from "./pages/AudioToolsPage";
+import PromptLibraryPage from "./pages/PromptLibraryPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const router = createBrowserRouter([
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
       {
         path: "audio-generator",
         element: <AudioGeneratorPage />,
+      },
+      {
+        path: "prompts",
+        element: <PromptLibraryPage />,
       },
       {
         path: "settings",
